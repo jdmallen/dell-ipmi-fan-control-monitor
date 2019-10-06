@@ -20,7 +20,9 @@ namespace R620TempMonitor
 				builder.UseSystemd();
 			}
 
-			builder.Build().Run();
+			var host = builder.Build(); // Separated for ease of inspection
+
+			host.Run();
 		}
 
 		public static IHostBuilder CreateHostBuilder(string[] args) =>
