@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -7,7 +8,19 @@ namespace R620TempMonitor
 	{
 		public static void Main(string[] args)
 		{
-			CreateHostBuilder(args).Build().Run();
+			var builder = CreateHostBuilder(args);
+
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+			{
+				builder.UseWindowsService();
+			}
+
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+			{
+				builder.UseSystemd();
+			}
+
+			builder.Build().Run();
 		}
 
 		public static IHostBuilder CreateHostBuilder(string[] args) =>
