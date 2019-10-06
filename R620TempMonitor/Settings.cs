@@ -12,9 +12,17 @@ namespace R620TempMonitor
 
 		public string IpmiPassword { get; set; }
 
+		public string PathToIpmiToolIfNotDefault { get; set; }
+
+		public string RegexToRetrieveTemp { get; set; }
+
 		public int MaxTempInC { get; set; }
 
+		public int ManualModeFanPercentage { get; set; }
+
 		public int PollingIntervalInSeconds { get; set; }
+
+		public int RollingAverageNumberOfTemps { get; set; }
 
 		public int BackToManualThresholdInSeconds { get; set; }
 

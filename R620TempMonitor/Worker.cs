@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -16,9 +17,10 @@ namespace R620TempMonitor
 		private readonly ILogger<Worker> _logger;
 		private readonly Settings _settings;
 		private static DateTime _timeFellBelowTemp = DateTime.MinValue;
-		private static OperatingMode? _currentMode = null;
+		private static OperatingMode? _currentMode;
 		private readonly IHostEnvironment _environment;
 		private bool _belowTemp;
+		private readonly List<int> _lastTenTemps;
 
 		private const string EnableAutomaticTempControlCommand =
 			"raw 0x30 0x30 0x01 0x01";
@@ -37,6 +39,8 @@ namespace R620TempMonitor
 			_logger = logger;
 			_environment = environment;
 			_settings = settings.Value;
+			_lastTenTemps =
+				new List<int>(_settings.RollingAverageNumberOfTemps);
 		}
 
 		protected override async Task ExecuteAsync(
@@ -47,13 +51,19 @@ namespace R620TempMonitor
 			while (!stoppingToken.IsCancellationRequested)
 			{
 				var temp = await CheckLatestTemperature();
+				PushTemperature(temp);
+				var rollingAverageTemp = GetRollingAverageTemperature();
+
 				_logger.LogInformation(
-					"Server fan control is {operatingMode}, temp is {temp} C, at {time}",
+					"Server fan control is {operatingMode}, temp is {temp} C, rolling average temp is {rollingAverageTemp} at {time}",
 					_currentMode,
 					temp,
+					rollingAverageTemp,
 					DateTimeOffset.Now);
 
-				if (temp > _settings.MaxTempInC)
+				// If the temp goes above the max threshold,
+				// immediately switch to Automatic fan mode.
+				if (temp > _settings.MaxTempInC || rollingAverageTemp > _settings.MaxTempInC)
 				{
 					_belowTemp = false;
 					if (_currentMode == OperatingMode.Automatic)
@@ -64,10 +74,17 @@ namespace R620TempMonitor
 
 					await SwitchToAutomaticTempControl();
 				}
+				// Only switch back to manual if both the current temp
+				// AND the rolling average are back below the set max.
 				else
 				{
 					if (!_belowTemp)
 					{
+						// Record the first record of when the temp dipped
+						// below the max temp threshold. This is an extra
+						// safety measure to ensure that Automatic mode isn't
+						// turned off too soon. You can see its usage in
+						// SwitchToManualTempControl().
 						_timeFellBelowTemp = DateTime.UtcNow;
 					}
 
@@ -86,6 +103,21 @@ namespace R620TempMonitor
 			}
 		}
 
+		private void PushTemperature(int temp)
+		{
+			if (_lastTenTemps.Count == _settings.RollingAverageNumberOfTemps)
+			{
+				_lastTenTemps.RemoveAt(0);
+			}
+
+			_lastTenTemps.Add(temp);
+		}
+
+		private double GetRollingAverageTemperature()
+		{
+			return _lastTenTemps.Average();
+		}
+
 		private async Task Delay(
 			CancellationToken stoppingToken)
 		{
@@ -94,13 +126,19 @@ namespace R620TempMonitor
 				stoppingToken);
 		}
 
+		/// <summary>
+		/// Calls iDRAC for latest temperature. Ensure that the Regex setting
+		/// to retrieve the temp has been updated for your particular system.
+		/// Mine is set for an R620 system.
+		/// </summary>
+		/// <returns></returns>
 		private async Task<int> CheckLatestTemperature()
 		{
 			var result =
 				await ExecuteIpmiToolCommand("sdr type temperature");
 			var temp = Regex.Match(
 					result,
-					@"(?<=0Eh).+(\d{2})",
+					_settings.RegexToRetrieveTemp,
 					RegexOptions.Multiline)
 				.Groups.Values.Last()
 				.Value;
@@ -110,14 +148,13 @@ namespace R620TempMonitor
 
 		private async Task SwitchToAutomaticTempControl()
 		{
-			_logger.LogInformation("Switching to automatic mode.");
+			_logger.LogInformation("Attempting switch to automatic mode.");
 			await ExecuteIpmiToolCommand(EnableAutomaticTempControlCommand);
 			_currentMode = OperatingMode.Automatic;
 		}
 
 		private async Task SwitchToManualTempControl()
 		{
-			_logger.LogInformation("Switching to manual mode.");
 			var timeSinceLastActivation =
 				DateTime.UtcNow - _timeFellBelowTemp;
 
@@ -131,29 +168,44 @@ namespace R620TempMonitor
 					+ $"{(int) (threshold - timeSinceLastActivation).TotalSeconds} seconds.");
 				return;
 			}
+			
+			_logger.LogInformation("Attempting switch to manual mode.");
 
-			await ExecuteIpmiToolCommand(EnableAutomaticTempControlCommand);
+			await ExecuteIpmiToolCommand(DisableAutomaticTempControlCommand);
+
+			var fanSpeedCommand = string.Format(
+				StaticFanSpeedFormatString,
+				_settings.ManualModeFanPercentage.ToString("X"));
+
+			await ExecuteIpmiToolCommand(fanSpeedCommand);
 			_currentMode = OperatingMode.Manual;
 		}
 
 		private async Task<string> ExecuteIpmiToolCommand(string command)
 		{
-			var IpmiPath = _settings.Platform switch
-			{
-				Platform.Linux => "/usr/bin/ipmitool",
-				Platform.Windows =>
-				@"C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe",
-				_ => throw new ArgumentOutOfRangeException()
-			};
+			// Uses default path for either Linux or Windows,
+			// unless a path is explicitly provided in appsettings.json.
+			var IpmiPath =
+				string.IsNullOrWhiteSpace(_settings.PathToIpmiToolIfNotDefault)
+					? _settings.Platform switch
+					{
+						Platform.Linux => "/usr/bin/ipmitool",
+						Platform.Windows =>
+						@"C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe",
+						_ => throw new ArgumentOutOfRangeException()
+					}
+					: _settings.PathToIpmiToolIfNotDefault;
 
 			var args =
 				$"-I lanplus -H {_settings.IpmiHost} -U {_settings.IpmiUser} -P {_settings.IpmiPassword} {command}";
 
-			_logger.LogDebug($"Executing:\r\n{IpmiPath} {args.Replace(_settings.IpmiPassword, "{password}")}");
+			_logger.LogDebug(
+				$"Executing:\r\n{IpmiPath} {args.Replace(_settings.IpmiPassword, "{password}")}");
 
 			string result;
 			if (_environment.IsDevelopment())
 			{
+				// Your IPMI results may differ from my sample.
 				result = await File.ReadAllTextAsync(
 					Path.Combine(Environment.CurrentDirectory, "testdata.txt"));
 			}
@@ -171,7 +223,7 @@ namespace R620TempMonitor
 						CreateNoWindow = true
 					}
 				};
-			
+
 				process.Start();
 				process.WaitForExit();
 				result = await process.StandardOutput.ReadToEndAsync();
