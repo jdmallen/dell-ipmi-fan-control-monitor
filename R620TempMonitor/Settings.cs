@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics.Eventing.Reader;
 using System.Runtime.InteropServices;
 
 namespace R620TempMonitor
@@ -16,15 +15,15 @@ namespace R620TempMonitor
 
 		public string RegexToRetrieveTemp { get; set; }
 
-		public int MaxTempInC { get; set; }
+		public int MaxTempInC { get; set; } = 50;
 
-		public int ManualModeFanPercentage { get; set; }
+		public int ManualModeFanPercentage { get; set; } = 30;
 
-		public int PollingIntervalInSeconds { get; set; }
+		public int PollingIntervalInSeconds { get; set; } = 30;
 
-		public int RollingAverageNumberOfTemps { get; set; }
+		public int RollingAverageNumberOfTemps { get; set; } = 10;
 
-		public int BackToManualThresholdInSeconds { get; set; }
+		public int BackToManualThresholdInSeconds { get; set; } = 60;
 
 		public Platform Platform
 		{
@@ -40,11 +39,10 @@ namespace R620TempMonitor
 					return Platform.Linux;
 				}
 
-				throw new PlatformNotSupportedException("Only works on Windows or Linux.");
+				throw new PlatformNotSupportedException(
+					"Only works on Windows or Linux.");
 			}
 		}
-
-		
 	}
 
 	public enum Platform

@@ -22,6 +22,9 @@ namespace R620TempMonitor
 		private bool _belowTemp;
 		private readonly List<int> _lastTenTemps;
 
+		private const string CheckTemperatureControlCommand =
+			"sdr type temperature";
+
 		private const string EnableAutomaticTempControlCommand =
 			"raw 0x30 0x30 0x01 0x01";
 
@@ -44,13 +47,13 @@ namespace R620TempMonitor
 		}
 
 		protected override async Task ExecuteAsync(
-			CancellationToken stoppingToken)
+			CancellationToken cancellationToken)
 		{
 			_logger.LogInformation($"Detected OS: {_settings.Platform:G}.");
 
-			while (!stoppingToken.IsCancellationRequested)
+			while (!cancellationToken.IsCancellationRequested)
 			{
-				var temp = await CheckLatestTemperature();
+				var temp = await CheckLatestTemperature(cancellationToken);
 				PushTemperature(temp);
 				var rollingAverageTemp = GetRollingAverageTemperature();
 
@@ -63,16 +66,17 @@ namespace R620TempMonitor
 
 				// If the temp goes above the max threshold,
 				// immediately switch to Automatic fan mode.
-				if (temp > _settings.MaxTempInC || rollingAverageTemp > _settings.MaxTempInC)
+				if (temp > _settings.MaxTempInC
+				    || rollingAverageTemp > _settings.MaxTempInC)
 				{
 					_belowTemp = false;
 					if (_currentMode == OperatingMode.Automatic)
 					{
-						await Delay(stoppingToken);
+						await Delay(cancellationToken);
 						continue;
 					}
 
-					await SwitchToAutomaticTempControl();
+					await SwitchToAutomaticTempControl(cancellationToken);
 				}
 				// Only switch back to manual if both the current temp
 				// AND the rolling average are back below the set max.
@@ -92,14 +96,14 @@ namespace R620TempMonitor
 
 					if (_currentMode == OperatingMode.Manual)
 					{
-						await Delay(stoppingToken);
+						await Delay(cancellationToken);
 						continue;
 					}
 
-					await SwitchToManualTempControl();
+					await SwitchToManualTempControl(cancellationToken);
 				}
 
-				await Delay(stoppingToken);
+				await Delay(cancellationToken);
 			}
 		}
 
@@ -119,11 +123,11 @@ namespace R620TempMonitor
 		}
 
 		private async Task Delay(
-			CancellationToken stoppingToken)
+			CancellationToken cancellationToken)
 		{
 			await Task.Delay(
 				TimeSpan.FromSeconds(_settings.PollingIntervalInSeconds),
-				stoppingToken);
+				cancellationToken);
 		}
 
 		/// <summary>
@@ -132,10 +136,13 @@ namespace R620TempMonitor
 		/// Mine is set for an R620 system.
 		/// </summary>
 		/// <returns></returns>
-		private async Task<int> CheckLatestTemperature()
+		private async Task<int> CheckLatestTemperature(
+			CancellationToken cancellationToken)
 		{
 			var result =
-				await ExecuteIpmiToolCommand("sdr type temperature");
+				await ExecuteIpmiToolCommand(
+					CheckTemperatureControlCommand,
+					cancellationToken);
 			var temp = Regex.Match(
 					result,
 					_settings.RegexToRetrieveTemp,
@@ -146,14 +153,18 @@ namespace R620TempMonitor
 			return intTemp;
 		}
 
-		private async Task SwitchToAutomaticTempControl()
+		private async Task SwitchToAutomaticTempControl(
+			CancellationToken cancellationToken)
 		{
 			_logger.LogInformation("Attempting switch to automatic mode.");
-			await ExecuteIpmiToolCommand(EnableAutomaticTempControlCommand);
+			await ExecuteIpmiToolCommand(
+				EnableAutomaticTempControlCommand,
+				cancellationToken);
 			_currentMode = OperatingMode.Automatic;
 		}
 
-		private async Task SwitchToManualTempControl()
+		private async Task SwitchToManualTempControl(
+			CancellationToken cancellationToken)
 		{
 			var timeSinceLastActivation =
 				DateTime.UtcNow - _timeFellBelowTemp;
@@ -168,24 +179,28 @@ namespace R620TempMonitor
 					+ $"{(int) (threshold - timeSinceLastActivation).TotalSeconds} seconds.");
 				return;
 			}
-			
+
 			_logger.LogInformation("Attempting switch to manual mode.");
 
-			await ExecuteIpmiToolCommand(DisableAutomaticTempControlCommand);
+			await ExecuteIpmiToolCommand(
+				DisableAutomaticTempControlCommand,
+				cancellationToken);
 
 			var fanSpeedCommand = string.Format(
 				StaticFanSpeedFormatString,
 				_settings.ManualModeFanPercentage.ToString("X"));
 
-			await ExecuteIpmiToolCommand(fanSpeedCommand);
+			await ExecuteIpmiToolCommand(fanSpeedCommand, cancellationToken);
 			_currentMode = OperatingMode.Manual;
 		}
 
-		private async Task<string> ExecuteIpmiToolCommand(string command)
+		private async Task<string> ExecuteIpmiToolCommand(
+			string command,
+			CancellationToken cancellationToken)
 		{
 			// Uses default path for either Linux or Windows,
 			// unless a path is explicitly provided in appsettings.json.
-			var IpmiPath =
+			var ipmiPath =
 				string.IsNullOrWhiteSpace(_settings.PathToIpmiToolIfNotDefault)
 					? _settings.Platform switch
 					{
@@ -200,33 +215,53 @@ namespace R620TempMonitor
 				$"-I lanplus -H {_settings.IpmiHost} -U {_settings.IpmiUser} -P {_settings.IpmiPassword} {command}";
 
 			_logger.LogDebug(
-				$"Executing:\r\n{IpmiPath} {args.Replace(_settings.IpmiPassword, "{password}")}");
+				$"Executing:\r\n{ipmiPath} {args.Replace(_settings.IpmiPassword, "{password}")}");
 
 			string result;
 			if (_environment.IsDevelopment())
 			{
 				// Your IPMI results may differ from my sample.
 				result = await File.ReadAllTextAsync(
-					Path.Combine(Environment.CurrentDirectory, "testdata.txt"));
+					Path.Combine(Environment.CurrentDirectory, "testdata.txt"),
+					cancellationToken);
 			}
 			else
 			{
-				var process = new Process
-				{
-					StartInfo = new ProcessStartInfo
-					{
-						FileName = IpmiPath,
-						Arguments = args,
-						RedirectStandardOutput = true,
-						RedirectStandardError = true,
-						UseShellExecute = false,
-						CreateNoWindow = true
-					}
-				};
+				result = await RunProcess(ipmiPath, args, cancellationToken);
+			}
 
+			return result;
+		}
+
+		private async Task<string> RunProcess(
+			string path,
+			string args,
+			CancellationToken cancellationToken)
+		{
+			string result = null;
+			var process = new Process
+			{
+				StartInfo = new ProcessStartInfo
+				{
+					FileName = path,
+					Arguments = args,
+					RedirectStandardOutput = true,
+					RedirectStandardError = true,
+					UseShellExecute = false,
+					CreateNoWindow = true
+				}
+			};
+
+			try
+			{
 				process.Start();
 				process.WaitForExit();
 				result = await process.StandardOutput.ReadToEndAsync();
+			}
+			catch (Exception ex)
+			{
+				_logger.LogCritical(ex, "Error attempting to call ipmitool!");
+				await StopAsync(cancellationToken);
 			}
 
 			return result;
@@ -242,7 +277,9 @@ namespace R620TempMonitor
 				"Monitor starting. Setting fan control to automatic to start.");
 
 			_currentMode = OperatingMode.Automatic;
-			SwitchToAutomaticTempControl();
+#pragma warning disable 4014
+			SwitchToAutomaticTempControl(cancellationToken);
+#pragma warning restore 4014
 			return base.StartAsync(cancellationToken);
 		}
 
