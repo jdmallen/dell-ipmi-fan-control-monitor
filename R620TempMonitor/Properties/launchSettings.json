@@ -1,0 +1,10 @@
+﻿{
+  "profiles": {
+    "R620TempMonitor": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
