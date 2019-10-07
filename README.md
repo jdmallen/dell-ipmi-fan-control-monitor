@@ -84,3 +84,11 @@ WantedBy=multi-user.target
 9. Start the service: `sudo systemctl start dotnet-r620-monitor.service`
 10. Monitor its status: `sudo systemctl status dotnet-r620-monitor.service` or `sudo journalctl -u dotnet-r620-monitor.service -f`
 11. Stress your box to see if it works as intended!
+
+## Screenshot
+
+Here's a shot of the service running on my system with a set threshold of 50 C, with 20-second polling, 10-reading average, and 60 second manual release:
+
+![Screenshot of journalctl showing service working](https://raw.githubusercontent.com/jdmallen/dell-ipmi-fan-control-monitor/master/service_in_action.png)
+
+Sure enough, I heard the beast (the R620) start screaming from our basement the moment it switched to Automatic mode.
