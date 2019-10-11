@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace R620TempMonitor
+namespace JDMallen.IPMITempMonitor
 {
 	public class Program
 	{

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace R620TempMonitor
+namespace JDMallen.IPMITempMonitor
 {
 	public class Settings
 	{
