@@ -20,6 +20,7 @@ namespace JDMallen.IPMITempMonitor
 		private static OperatingMode? _currentMode;
 		private readonly IHostEnvironment _environment;
 		private bool _belowTemp;
+		private int _manualSwitchAttemptCount;
 		private readonly List<int> _lastTenTemps;
 
 		private const string CheckTemperatureControlCommand =
@@ -58,7 +59,7 @@ namespace JDMallen.IPMITempMonitor
 				var rollingAverageTemp = GetRollingAverageTemperature();
 
 				_logger.LogInformation(
-					"Server fan control is {operatingMode}, temp is {temp} C, rolling average temp is {rollingAverageTemp} at {time}",
+					"Fan control {operatingMode}; current temp {temp} C; average temp {rollingAverageTemp}",
 					_currentMode,
 					temp,
 					rollingAverageTemp,
@@ -90,11 +91,20 @@ namespace JDMallen.IPMITempMonitor
 						// turned off too soon. You can see its usage in
 						// SwitchToManualTempControl().
 						_timeFellBelowTemp = DateTime.UtcNow;
+
+						// Reset the number of times we attempt to switch to
+						// Manual, based on setting (default: 2).
+						// Note that if the temperature goes above threshold
+						// between attempts, subsequent attempts are skipped
+						// and it switches to Automatic fan control mode
+						// (as one would hope).
+						_manualSwitchAttemptCount =
+							_settings.ManualModeSwitchReattempts;
 					}
 
 					_belowTemp = true;
 
-					if (_currentMode == OperatingMode.Manual)
+					if (_currentMode == OperatingMode.Manual && _manualSwitchAttemptCount == 0)
 					{
 						await Delay(cancellationToken);
 						continue;
@@ -154,6 +164,17 @@ namespace JDMallen.IPMITempMonitor
 					CheckTemperatureControlCommand,
 					cancellationToken);
 
+			// Replace the above result object with this one in order to
+			// test the behavior of the app. Just run the program and edit
+			// testdata.txt as it's running to simulate the reported temps.
+			// var result = File.ReadAllText(
+			// 	Path.Combine(
+			// 		AppContext.BaseDirectory,
+			// 		$"..{Path.DirectorySeparatorChar}",
+			// 		$"..{Path.DirectorySeparatorChar}",
+			// 		$"..{Path.DirectorySeparatorChar}",
+			// 		"testdata.txt"));
+
 			// Using the default of (?<=0Eh|0Fh).+(\\d{2}) will return
 			// all 2-digit numbers in lines containing "0Eh" or "0Fh"--
 			// in this case, 30 and 31-- as captured groups.
@@ -204,7 +225,11 @@ namespace JDMallen.IPMITempMonitor
 				return;
 			}
 
-			_logger.LogInformation("Attempting switch to manual mode.");
+			_logger.LogInformation(
+				"Switching to manual mode, attempt {0} of {1}",
+				_settings.ManualModeSwitchReattempts
+				- _manualSwitchAttemptCount + 1,
+				_settings.ManualModeSwitchReattempts);
 
 			await ExecuteIpmiToolCommand(
 				DisableAutomaticTempControlCommand,
@@ -216,6 +241,10 @@ namespace JDMallen.IPMITempMonitor
 
 			await ExecuteIpmiToolCommand(fanSpeedCommand, cancellationToken);
 			_currentMode = OperatingMode.Manual;
+			if (_manualSwitchAttemptCount >= 1)
+			{
+				_manualSwitchAttemptCount--;
+			}
 		}
 
 		private async Task<string> ExecuteIpmiToolCommand(

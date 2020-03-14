@@ -19,6 +19,8 @@ namespace JDMallen.IPMITempMonitor
 
 		public int ManualModeFanPercentage { get; set; } = 30;
 
+		public int ManualModeSwitchReattempts { get; set; } = 2;
+
 		public int PollingIntervalInSeconds { get; set; } = 30;
 
 		public int RollingAverageNumberOfTemps { get; set; } = 10;
