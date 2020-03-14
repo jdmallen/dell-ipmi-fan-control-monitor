@@ -131,33 +131,50 @@ namespace JDMallen.IPMITempMonitor
 		}
 
 		/// <summary>
-		/// Calls iDRAC for latest temperature. Ensure that the Regex setting
-		/// to retrieve the temp has been updated for your particular system.
-		/// Mine is set for an R620 system.
+		/// Calls iDRAC for latest temperature.
 		/// </summary>
+		/// <remarks>
+		/// Ensure that the Regex setting to retrieve the temp(s) has been
+		/// updated for your particular system. Mine is set for an R620 system.
+		/// The default values provided in this project are meant to parse an
+		/// output like the below. The inline comments will reference this
+		/// as an example:
+		///     Inlet Temp       | 04h | ok  |  7.1 | 20 degrees C
+		///     Exhaust Temp     | 01h | ok  |  7.1 | 25 degrees C
+		///     Temp             | 0Eh | ok  |  3.1 | 30 degrees C
+		///     Temp             | 0Fh | ok  |  3.2 | 31 degrees C
+		/// </remarks>
 		/// <returns></returns>
 		private async Task<int> CheckLatestTemperature(
 			CancellationToken cancellationToken)
 		{
+			// Get the output string like the one in <remarks> above.
 			var result =
 				await ExecuteIpmiToolCommand(
 					CheckTemperatureControlCommand,
 					cancellationToken);
 
-            var matches = Regex.Matches(
-                result,
-                _settings.RegexToRetrieveTemp,
-                RegexOptions.Multiline);
+			// Using the default of (?<=0Eh|0Fh).+(\\d{2}) will return
+			// all 2-digit numbers in lines containing "0Eh" or "0Fh"--
+			// in this case, 30 and 31-- as captured groups.
+			var matches = Regex.Matches(
+				result,
+				_settings.RegexToRetrieveTemp,
+				RegexOptions.Multiline);
 
-            var intTemp = matches.Select(x => x.Groups.Values.LastOrDefault()?.Value)
-                .Where(x => !string.IsNullOrEmpty(x))
-                .Select(x =>
-                {
-                    if (int.TryParse(x, out var temp)) return temp;
-                    else return 0;
-                }).Max();
+			// For each matched line, grab the last capture group (the 2-digit
+			// temp) and attempt to convert it to an integer. Find the max
+			// int of all the matched lines and return it.
+			var maxCpuTemp = matches
+				.Select(
+					x => int.TryParse(
+						x.Groups.Values.LastOrDefault()?.Value,
+						out var temp)
+						? temp
+						: 0)
+				.Max();
 
-			return intTemp;
+			return maxCpuTemp;
 		}
 
 		private async Task SwitchToAutomaticTempControl(
