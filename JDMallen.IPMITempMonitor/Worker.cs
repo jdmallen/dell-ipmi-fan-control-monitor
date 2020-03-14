@@ -143,13 +143,20 @@ namespace JDMallen.IPMITempMonitor
 				await ExecuteIpmiToolCommand(
 					CheckTemperatureControlCommand,
 					cancellationToken);
-			var temp = Regex.Match(
-					result,
-					_settings.RegexToRetrieveTemp,
-					RegexOptions.Multiline)
-				.Groups.Values.Last()
-				.Value;
-			int.TryParse(temp, out var intTemp);
+
+            var matches = Regex.Matches(
+                result,
+                _settings.RegexToRetrieveTemp,
+                RegexOptions.Multiline);
+
+            var intTemp = matches.Select(x => x.Groups.Values.LastOrDefault()?.Value)
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Select(x =>
+                {
+                    if (int.TryParse(x, out var temp)) return temp;
+                    else return 0;
+                }).Max();
+
 			return intTemp;
 		}
 
