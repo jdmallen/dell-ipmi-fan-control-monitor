@@ -59,7 +59,7 @@ namespace JDMallen.IPMITempMonitor
 				var rollingAverageTemp = GetRollingAverageTemperature();
 
 				_logger.LogInformation(
-					"Fan control {operatingMode}; current temp {temp} C; average temp {rollingAverageTemp}",
+					"{operatingMode} fan control; current temp {temp} C; average temp {rollingAverageTemp} C",
 					_currentMode,
 					temp,
 					rollingAverageTemp,
@@ -129,7 +129,7 @@ namespace JDMallen.IPMITempMonitor
 
 		private double GetRollingAverageTemperature()
 		{
-			return _lastTenTemps.Average();
+			return Math.Round(_lastTenTemps.Average(), 1);
 		}
 
 		private async Task Delay(
@@ -219,14 +219,17 @@ namespace JDMallen.IPMITempMonitor
 
 			if (timeSinceLastActivation < threshold)
 			{
+				var secondsRemaining =
+					(int) (threshold - timeSinceLastActivation).TotalSeconds;
 				_logger.LogWarning(
-					"Manual threshold not crossed yet. Staying in Automatic mode for at least another "
-					+ $"{(int) (threshold - timeSinceLastActivation).TotalSeconds} seconds.");
+					"Manual threshold not yet crossed. Staying in Automatic mode for at least another {remaining} {unit}.",
+					secondsRemaining,
+					secondsRemaining == 1 ? "second" : "seconds");
 				return;
 			}
 
 			_logger.LogInformation(
-				"Switching to manual mode, attempt {0} of {1}",
+				"Switching to Manual mode, attempt {attemptNumber} of {totalAttemptCount}",
 				_settings.ManualModeSwitchReattempts
 				- _manualSwitchAttemptCount + 1,
 				_settings.ManualModeSwitchReattempts);
