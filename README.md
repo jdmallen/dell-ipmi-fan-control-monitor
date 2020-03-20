@@ -32,8 +32,8 @@ The user you configured for access in your iDRAC settings, usually "root".
 - **IpmiPassword**    
 The password. Note: You can leave this blank here and instead provide it in the environment variable "Settings__IpmiPassword", either system-wide or in the systemd service settings. See below.
 - **RegexToRetrieveTemp**    
-This is how the app fetches the 2-digit temperature(s) from the output of the "sdr type temperature" ipmitool command. The default, `(?<=0Eh|0Fh).+(\d{2})`, works for me, but your output may look different from mine. My output is stored in  [`testdata.txt`](https://github.com/jdmallen/dell-ipmi-fan-control-monitor/blob/master/R620TempMonitor/testdata.txt), for reference.    
-To get an idea of how the Regex works, if you're not comfortable, go to a site like [RegEx101.com](https://regex101.com/), paste the content of [`testdata.txt`](https://github.com/jdmallen/dell-ipmi-fan-control-monitor/blob/master/R620TempMonitor/testdata.txt) in the "Text String" box, and paste the Regex from the settings file, `(?<=0Eh|0Fh).+(\d{2})`, in the Regex field. Note the capture groups on the right. Then replace the Test String with _your_ ipmitool output for "sdr type temperature", and change the Regex to capture the same groups as mine did. The Regex matches on multiline, case-sensitive.
+This is how the app fetches the 2-digit temperature(s) from the output of the "sdr type temperature" ipmitool command. The default, `(?<=0Eh|0Fh).+(\d{2})`, works for me, but your output may look different from mine. My output is stored in  [`testdata.txt`](https://github.com/jdmallen/dell-ipmi-fan-control-monitor/blob/master/JDMallen.IPMITempMonitor/testdata.txt), for reference.    
+To get an idea of how the Regex works, if you're not comfortable, go to a site like [RegEx101.com](https://regex101.com/), paste the content of [`testdata.txt`](https://github.com/jdmallen/dell-ipmi-fan-control-monitor/blob/master/JDMallen.IPMITempMonitor/testdata.txt) in the "Text String" box, and paste the Regex from the settings file, `(?<=0Eh|0Fh).+(\d{2})`, in the Regex field. Note the capture groups on the right. Then replace the Test String with _your_ ipmitool output for "sdr type temperature", and change the Regex to capture the same groups as mine did. The Regex matches on multiline, case-sensitive.
 - **MaxTempInC**    
 The temperature at which you want your server to switch to automatic fan control.
 - **PollingIntervalInSeconds**    
@@ -57,7 +57,7 @@ These instructions assume you're using an Ubuntu/Debian-based system. Adjust as 
 2. Extract the linux x64 release to `/var/dotnet/r620-monitor/`. You can place it wherever you like, but this is where I put it, and where the rest of the instructions will assume you put it.
 3. Modify settings in `appsettings.production.json` to your preferences. This is where you set polling frequency, max temperature, how should parse your ipmitool output to read temperature, etc.
 4. Change the ownership of the folder, and all files within to dotnetuser: `sudo chown dotnetuser:dotnetuser /var/dotnet/r620-monitor && sudo chown dotnetuser:dotnetuser /var/dotnet/r620-monitor/*`
-5. Add execute bit to R620TempMonitor binary: `sudo chmod +x /var/dotnet/r620-monitor/R620TempMonitor`
+5. Add execute bit to R620TempMonitor binary: `sudo chmod +x /var/dotnet/r620-monitor/JDMallen.IPMITempMonitor`
 6. Create a service file here: `/etc/systemd/system/dotnet-r620-monitor.service` using your favorite text editor with elevated privileges. I used vim: `sudo vim /etc/systemd/system/dotnet-r620-monitor.service`.
 7. Paste in the below service definition. Be sure to replace "{your_iDRAC_password}", then tweak to your liking. It's critical it remain of type "notify"!
 ```
@@ -66,7 +66,7 @@ Description=Temp monitor and fan control for R620 server
 
 [Service]
 Type=notify
-ExecStart= /var/dotnet/r620-monitor/R620TempMonitor
+ExecStart= /var/dotnet/r620-monitor/JDMallen.IPMITempMonitor
 WorkingDirectory=/var/dotnet/r620-monitor
 User=dotnetuser
 Group=dotnetuser
