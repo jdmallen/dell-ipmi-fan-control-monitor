@@ -1,6 +1,6 @@
 ﻿{
   "profiles": {
-    "R620TempMonitor": {
+    "JDMallen.IPMITempMonitor": {
       "commandName": "Project",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
