@@ -6,11 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="testdata.txt" />
+    <None Remove="test_temp_response.txt" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="testdata.txt" />
+    <Content Include="test_temp_response.txt" />
   </ItemGroup>
 
   <ItemGroup>

@@ -23,17 +23,10 @@ namespace JDMallen.IPMITempMonitor
 		private int _manualSwitchAttemptCount;
 		private readonly List<int> _lastTenTemps;
 
-		private const string CheckTemperatureControlCommand =
-			"sdr type temperature";
-
-		private const string EnableAutomaticTempControlCommand =
-			"raw 0x30 0x30 0x01 0x01";
-
-		private const string DisableAutomaticTempControlCommand =
-			"raw 0x30 0x30 0x01 0x00";
-
-		private const string StaticFanSpeedFormatString =
-			"raw 0x30 0x30 0x02 0xff 0x{0}";
+		private const string CHECK_TEMPERATURE_CONTROL_COMMAND = "sdr type temperature";
+		private const string ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND = "raw 0x30 0x30 0x01 0x01";
+		private const string DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND = "raw 0x30 0x30 0x01 0x00";
+		private const string STATIC_FAN_SPEED_FORMAT_STRING = "raw 0x30 0x30 0x02 0xff 0x{0}";
 
 		public Worker(
 			ILogger<Worker> logger,
@@ -43,20 +36,18 @@ namespace JDMallen.IPMITempMonitor
 			_logger = logger;
 			_environment = environment;
 			_settings = settings.Value;
-			_lastTenTemps =
-				new List<int>(_settings.RollingAverageNumberOfTemps);
+			_lastTenTemps = new List<int>(_settings.RollingAverageNumberOfTemps);
 		}
 
-		protected override async Task ExecuteAsync(
-			CancellationToken cancellationToken)
+		protected override async Task ExecuteAsync(CancellationToken cancellationToken)
 		{
 			_logger.LogInformation($"Detected OS: {_settings.Platform:G}.");
 
 			while (!cancellationToken.IsCancellationRequested)
 			{
-				var temp = await CheckLatestTemperature(cancellationToken);
+				int temp = await CheckLatestTemperature(cancellationToken);
 				PushTemperature(temp);
-				var rollingAverageTemp = GetRollingAverageTemperature();
+				double rollingAverageTemp = GetRollingAverageTemperature();
 
 				_logger.LogInformation(
 					"{operatingMode} fan control; current temp {temp} C; average temp {rollingAverageTemp} C",
@@ -67,18 +58,19 @@ namespace JDMallen.IPMITempMonitor
 
 				// If the temp goes above the max threshold,
 				// immediately switch to Automatic fan mode.
-				if (temp > _settings.MaxTempInC
-				    || rollingAverageTemp > _settings.MaxTempInC)
+				if (temp > _settings.MaxTempInC || rollingAverageTemp > _settings.MaxTempInC)
 				{
 					_belowTemp = false;
 					if (_currentMode == OperatingMode.Automatic)
 					{
 						await Delay(cancellationToken);
+
 						continue;
 					}
 
 					await SwitchToAutomaticTempControl(cancellationToken);
 				}
+
 				// Only switch back to manual if both the current temp
 				// AND the rolling average are back below the set max.
 				else
@@ -98,8 +90,7 @@ namespace JDMallen.IPMITempMonitor
 						// between attempts, subsequent attempts are skipped
 						// and it switches to Automatic fan control mode
 						// (as one would hope).
-						_manualSwitchAttemptCount =
-							_settings.ManualModeSwitchReattempts;
+						_manualSwitchAttemptCount = _settings.ManualModeSwitchReattempts;
 					}
 
 					_belowTemp = true;
@@ -107,6 +98,7 @@ namespace JDMallen.IPMITempMonitor
 					if (_currentMode == OperatingMode.Manual && _manualSwitchAttemptCount == 0)
 					{
 						await Delay(cancellationToken);
+
 						continue;
 					}
 
@@ -127,13 +119,9 @@ namespace JDMallen.IPMITempMonitor
 			_lastTenTemps.Add(temp);
 		}
 
-		private double GetRollingAverageTemperature()
-		{
-			return Math.Round(_lastTenTemps.Average(), 1);
-		}
+		private double GetRollingAverageTemperature() => Math.Round(_lastTenTemps.Average(), 1);
 
-		private async Task Delay(
-			CancellationToken cancellationToken)
+		private async Task Delay(CancellationToken cancellationToken)
 		{
 			await Task.Delay(
 				TimeSpan.FromSeconds(_settings.PollingIntervalInSeconds),
@@ -155,25 +143,13 @@ namespace JDMallen.IPMITempMonitor
 		///     Temp             | 0Fh | ok  |  3.2 | 31 degrees C
 		/// </remarks>
 		/// <returns></returns>
-		private async Task<int> CheckLatestTemperature(
-			CancellationToken cancellationToken)
+		private async Task<int> CheckLatestTemperature(CancellationToken cancellationToken)
 		{
 			// Get the output string like the one in <remarks> above.
-			var result =
+			string result =
 				await ExecuteIpmiToolCommand(
-					CheckTemperatureControlCommand,
+					CHECK_TEMPERATURE_CONTROL_COMMAND,
 					cancellationToken);
-
-			// Replace the above result object with this one in order to
-			// test the behavior of the app. Just run the program and edit
-			// testdata.txt as it's running to simulate the reported temps.
-			// var result = File.ReadAllText(
-			// 	Path.Combine(
-			// 		AppContext.BaseDirectory,
-			// 		$"..{Path.DirectorySeparatorChar}",
-			// 		$"..{Path.DirectorySeparatorChar}",
-			// 		$"..{Path.DirectorySeparatorChar}",
-			// 		"testdata.txt"));
 
 			// Using the default of (?<=0Eh|0Fh).+(\\d{2}) will return
 			// all 2-digit numbers in lines containing "0Eh" or "0Fh"--
@@ -186,11 +162,11 @@ namespace JDMallen.IPMITempMonitor
 			// For each matched line, grab the last capture group (the 2-digit
 			// temp) and attempt to convert it to an integer. Find the max
 			// int of all the matched lines and return it.
-			var maxCpuTemp = matches
+			int maxCpuTemp = matches
 				.Select(
 					x => int.TryParse(
 						x.Groups.Values.LastOrDefault()?.Value,
-						out var temp)
+						out int temp)
 						? temp
 						: 0)
 				.Max();
@@ -198,18 +174,18 @@ namespace JDMallen.IPMITempMonitor
 			return maxCpuTemp;
 		}
 
-		private async Task SwitchToAutomaticTempControl(
-			CancellationToken cancellationToken)
+		private async Task SwitchToAutomaticTempControl(CancellationToken cancellationToken)
 		{
-			_logger.LogInformation("Attempting switch to automatic mode.");
+			_logger.LogInformation("Switching to Automatic mode.");
+
 			await ExecuteIpmiToolCommand(
-				EnableAutomaticTempControlCommand,
+				ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
 				cancellationToken);
+
 			_currentMode = OperatingMode.Automatic;
 		}
 
-		private async Task SwitchToManualTempControl(
-			CancellationToken cancellationToken)
+		private async Task SwitchToManualTempControl(CancellationToken cancellationToken)
 		{
 			var timeSinceLastActivation =
 				DateTime.UtcNow - _timeFellBelowTemp;
@@ -225,21 +201,21 @@ namespace JDMallen.IPMITempMonitor
 					"Manual threshold not yet crossed. Staying in Automatic mode for at least another {remaining} {unit}.",
 					secondsRemaining,
 					secondsRemaining == 1 ? "second" : "seconds");
+
 				return;
 			}
 
 			_logger.LogInformation(
 				"Switching to Manual mode, attempt {attemptNumber} of {totalAttemptCount}",
-				_settings.ManualModeSwitchReattempts
-				- _manualSwitchAttemptCount + 1,
+				_settings.ManualModeSwitchReattempts - _manualSwitchAttemptCount + 1,
 				_settings.ManualModeSwitchReattempts);
 
 			await ExecuteIpmiToolCommand(
-				DisableAutomaticTempControlCommand,
+				DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
 				cancellationToken);
 
-			var fanSpeedCommand = string.Format(
-				StaticFanSpeedFormatString,
+			string fanSpeedCommand = string.Format(
+				STATIC_FAN_SPEED_FORMAT_STRING,
 				_settings.ManualModeFanPercentage.ToString("X"));
 
 			await ExecuteIpmiToolCommand(fanSpeedCommand, cancellationToken);
@@ -256,14 +232,13 @@ namespace JDMallen.IPMITempMonitor
 		{
 			// Uses default path for either Linux or Windows,
 			// unless a path is explicitly provided in appsettings.json.
-			var ipmiPath =
+			string ipmiPath =
 				string.IsNullOrWhiteSpace(_settings.PathToIpmiToolIfNotDefault)
 					? _settings.Platform switch
 					{
-						Platform.Linux => "/usr/bin/ipmitool",
-						Platform.Windows =>
-						@"C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe",
-						_ => throw new ArgumentOutOfRangeException()
+						Platform.Linux   => "/usr/bin/ipmitool",
+						Platform.Windows => @"C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe",
+						_                => throw new ArgumentOutOfRangeException(),
 					}
 					: _settings.PathToIpmiToolIfNotDefault;
 
@@ -271,22 +246,29 @@ namespace JDMallen.IPMITempMonitor
 				$"-I lanplus -H {_settings.IpmiHost} -U {_settings.IpmiUser} -P {_settings.IpmiPassword} {command}";
 
 			_logger.LogDebug(
-				$"Executing:\r\n{ipmiPath} {args.Replace(_settings.IpmiPassword, "{password}")}");
+				$"Executing: {ipmiPath} {args.Replace(_settings.IpmiPassword, "{password}")}");
 
-			string result;
 			if (_environment.IsDevelopment())
 			{
-				// Your IPMI results may differ from my sample.
-				result = await File.ReadAllTextAsync(
-					Path.Combine(Environment.CurrentDirectory, "testdata.txt"),
-					cancellationToken);
-			}
-			else
-			{
-				result = await RunProcess(ipmiPath, args, cancellationToken);
+				return command switch
+				{
+					CHECK_TEMPERATURE_CONTROL_COMMAND =>
+
+						// Your IPMI results may differ from my sample.
+
+						await File.ReadAllTextAsync(
+							Path.Combine(
+								AppContext.BaseDirectory,
+								$"..{Path.DirectorySeparatorChar}",
+								$"..{Path.DirectorySeparatorChar}",
+								$"..{Path.DirectorySeparatorChar}",
+								"test_temp_response.txt"),
+							cancellationToken),
+					_ => string.Empty,
+				};
 			}
 
-			return result;
+			return await RunProcess(ipmiPath, args, cancellationToken);
 		}
 
 		private async Task<string> RunProcess(
@@ -304,8 +286,8 @@ namespace JDMallen.IPMITempMonitor
 					RedirectStandardOutput = true,
 					RedirectStandardError = true,
 					UseShellExecute = false,
-					CreateNoWindow = true
-				}
+					CreateNoWindow = true,
+				},
 			};
 
 			try
@@ -327,16 +309,15 @@ namespace JDMallen.IPMITempMonitor
 		/// Triggered when the application host is ready to start the service.
 		/// </summary>
 		/// <param name="cancellationToken">Indicates that the start process has been aborted.</param>
-		public override Task StartAsync(CancellationToken cancellationToken)
+		public override async Task StartAsync(CancellationToken cancellationToken)
 		{
-			_logger.LogInformation(
-				"Monitor starting. Setting fan control to automatic to start.");
+			_logger.LogInformation("Monitor starting. Setting fan control to automatic to start.");
 
 			_currentMode = OperatingMode.Automatic;
-#pragma warning disable 4014
-			SwitchToAutomaticTempControl(cancellationToken);
-#pragma warning restore 4014
-			return base.StartAsync(cancellationToken);
+
+			await SwitchToAutomaticTempControl(cancellationToken);
+
+			await base.StartAsync(cancellationToken);
 		}
 
 		/// <summary>
@@ -346,6 +327,7 @@ namespace JDMallen.IPMITempMonitor
 		public override Task StopAsync(CancellationToken cancellationToken)
 		{
 			_logger.LogWarning("Monitor stopping");
+
 			return base.StopAsync(cancellationToken);
 		}
 	}
@@ -353,6 +335,6 @@ namespace JDMallen.IPMITempMonitor
 	public enum OperatingMode
 	{
 		Automatic,
-		Manual
+		Manual,
 	}
 }
