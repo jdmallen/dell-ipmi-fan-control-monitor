@@ -171,9 +171,9 @@ namespace JDMallen.IPMITempMonitor
 				rollingAverageTemp,
 				OperatingMode.AUTOMATIC);
 
-			// await ExecuteIpmiToolCommand(
-			// 	ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
-			// 	stoppingToken);
+			await ExecuteIpmiToolCommand(
+				ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
+				stoppingToken);
 
 			_currentMode = OperatingMode.AUTOMATIC;
 		}
@@ -212,15 +212,15 @@ namespace JDMallen.IPMITempMonitor
 				_settings.ManualModeSwitchReattempts - _manualSwitchAttemptCount + 1,
 				_settings.ManualModeSwitchReattempts);
 
-			// await ExecuteIpmiToolCommand(
-			// 	DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
-			// 	stoppingToken);
+			await ExecuteIpmiToolCommand(
+				DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
+				stoppingToken);
 
 			string fanSpeedCommand = string.Format(
 				STATIC_FAN_SPEED_FORMAT_STRING,
 				_settings.ManualModeFanPercentage.ToString("X"));
 
-			// await ExecuteIpmiToolCommand(fanSpeedCommand, stoppingToken);
+			await ExecuteIpmiToolCommand(fanSpeedCommand, stoppingToken);
 			_currentMode = OperatingMode.MANUAL;
 			if (_manualSwitchAttemptCount >= 1)
 			{
