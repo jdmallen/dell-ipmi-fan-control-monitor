@@ -33,6 +33,8 @@ namespace JDMallen.IPMITempMonitor
 		private const string DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND = "raw 0x30 0x30 0x01 0x00";
 		private const string STATIC_FAN_SPEED_FORMAT_STRING = "raw 0x30 0x30 0x02 0xff 0x{0}";
 
+		private const string DOCKER_ENV_VAR = "DOTNET_RUNNING_IN_CONTAINER";
+
 		public Worker(
 			ILogger<Worker> logger,
 			IOptions<Settings> settings,
@@ -306,7 +308,7 @@ namespace JDMallen.IPMITempMonitor
 			try
 			{
 				// If not in docker, use the file from the source directory.
-				var isInDocker = _configuration.GetValue<bool>("DOTNET_RUNNING_IN_CONTAINER");
+				var isInDocker = _configuration.GetValue<bool>(DOCKER_ENV_VAR);
 				var path = isInDocker
 					? Path.Combine(AppContext.BaseDirectory, filename)
 					: Path.Combine(
@@ -341,7 +343,9 @@ namespace JDMallen.IPMITempMonitor
 		/// </param>
 		public override async Task StartAsync(CancellationToken stoppingToken)
 		{
-			_logger.LogDebug($"Detected OS: {Settings.Platform:G}.");
+			var isInDocker = _configuration.GetValue<bool>(DOCKER_ENV_VAR);
+			_logger.LogDebug(
+				$"Detected OS: {Settings.Platform:G}{(isInDocker ? " (Docker container)" : "")}");
 
 			await CheckLatestTemperature(stoppingToken);
 
