@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using JDMallen.Toolbox.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ namespace JDMallen.IPMITempMonitor
 	{
 		private readonly ILogger<Worker> _logger;
 		private readonly Settings _settings;
+		private readonly IConfiguration _configuration;
 		private static DateTime _timeFellBelowTemp = DateTime.MinValue;
 		private static OperatingMode? _currentMode;
 		private readonly IHostEnvironment _environment;
@@ -35,10 +37,12 @@ namespace JDMallen.IPMITempMonitor
 			ILogger<Worker> logger,
 			IOptions<Settings> settings,
 			IHostEnvironment environment,
-			IServiceScopeFactory scopeFactory) : base(logger, scopeFactory)
+			IServiceScopeFactory scopeFactory,
+			IConfiguration configuration) : base(logger, scopeFactory)
 		{
 			_logger = logger;
 			_environment = environment;
+			_configuration = configuration;
 			_settings = settings.Value;
 			_lastTenTemps = new List<int>(_settings.RollingAverageNumberOfTemps);
 		}
@@ -298,16 +302,22 @@ namespace JDMallen.IPMITempMonitor
 
 		private async Task<string> ReadTestResponseFile(CancellationToken stoppingToken)
 		{
+			const string filename = "test_temp_response.txt";
 			try
 			{
-				return await File.ReadAllTextAsync(
-					Path.Combine(
+				// If not in docker, use the file from the source directory.
+				var isInDocker = _configuration.GetValue<bool>("DOTNET_RUNNING_IN_CONTAINER");
+				var path = isInDocker
+					? Path.Combine(AppContext.BaseDirectory, filename)
+					: Path.Combine(
 						AppContext.BaseDirectory,
 						$"..{Path.DirectorySeparatorChar}",
 						$"..{Path.DirectorySeparatorChar}",
 						$"..{Path.DirectorySeparatorChar}",
-						"test_temp_response.txt"),
-					stoppingToken);
+						filename
+					);
+				
+				return await File.ReadAllTextAsync(path, stoppingToken);
 			}
 			catch (FileNotFoundException ex)
 			{
