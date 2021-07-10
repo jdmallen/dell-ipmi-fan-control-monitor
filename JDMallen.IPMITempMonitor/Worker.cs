@@ -43,8 +43,8 @@ namespace JDMallen.IPMITempMonitor
 			_lastTenTemps = new List<int>(_settings.RollingAverageNumberOfTemps);
 		}
 
-		private string _logPrefix
-			= "Current temp: {lastRecordedTemp}°C | Average temp: {rollingAverageTemp}°C | ";
+		private const string LOG_PREFIX =
+			"Current temp: {lastRecordedTemp}Â°C | Average temp: {rollingAverageTemp}Â°C | ";
 
 		protected override async Task ExecuteInScopeAsync(
 			IServiceScope scope,
@@ -54,7 +54,7 @@ namespace JDMallen.IPMITempMonitor
 			double rollingAverageTemp = GetRollingAverageTemperature();
 
 			_logger.LogInformation(
-				_logPrefix + "Fan control: {operatingMode}",
+				LOG_PREFIX + "Fan control: {operatingMode}",
 				_lastRecordedTemp,
 				rollingAverageTemp,
 				_currentMode);
@@ -139,7 +139,7 @@ namespace JDMallen.IPMITempMonitor
 
 			// Using the default of (?<=0Eh|0Fh).+(\\d{2}) will return all 2-digit numbers in lines
 			// containing "0Eh" or "0Fh"-- in the above example, 30 and 31-- as captured groups.
-			var matches = Regex.Matches(
+			MatchCollection matches = Regex.Matches(
 				result,
 				_settings.RegexToRetrieveTemp,
 				RegexOptions.Multiline);
@@ -162,30 +162,30 @@ namespace JDMallen.IPMITempMonitor
 		{
 			double rollingAverageTemp = GetRollingAverageTemperature();
 			_logger.LogWarning(
-				_logPrefix + "Switching to {newOperatingMode} fan control",
+				LOG_PREFIX + "Switching to {newOperatingMode} fan control",
 				_lastRecordedTemp,
 				rollingAverageTemp,
 				OperatingMode.AUTOMATIC);
 
-			await ExecuteIpmiToolCommand(
-				ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
-				stoppingToken);
+			// await ExecuteIpmiToolCommand(
+			// 	ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
+			// 	stoppingToken);
 
 			_currentMode = OperatingMode.AUTOMATIC;
 		}
 
 		private async Task SwitchToManualTempControl(CancellationToken stoppingToken)
 		{
-			var timeSinceLastActivation = DateTime.UtcNow - _timeFellBelowTemp;
+			TimeSpan timeSinceLastActivation = DateTime.UtcNow - _timeFellBelowTemp;
 
-			var threshold = TimeSpan.FromSeconds(_settings.BackToManualThresholdInSeconds);
+			TimeSpan threshold = TimeSpan.FromSeconds(_settings.BackToManualThresholdInSeconds);
 
 			if (timeSinceLastActivation < threshold)
 			{
 				var secondsRemaining =
 					(int) (threshold - timeSinceLastActivation).TotalSeconds;
 				_logger.LogInformation(
-					_logPrefix
+					LOG_PREFIX
 					+ "{newOperatingMode} delay threshold not yet met; "
 					+ "staying in {operatingMode} mode for {remaining} {unit}.",
 					_lastRecordedTemp,
@@ -199,7 +199,7 @@ namespace JDMallen.IPMITempMonitor
 			}
 
 			_logger.LogWarning(
-				_logPrefix
+				LOG_PREFIX
 				+ "Switching to {newOperatingMode} fan control | "
 				+ "Attempt {attemptNumber} of {totalAttemptCount}",
 				_lastRecordedTemp,
@@ -208,15 +208,15 @@ namespace JDMallen.IPMITempMonitor
 				_settings.ManualModeSwitchReattempts - _manualSwitchAttemptCount + 1,
 				_settings.ManualModeSwitchReattempts);
 
-			await ExecuteIpmiToolCommand(
-				DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
-				stoppingToken);
+			// await ExecuteIpmiToolCommand(
+			// 	DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
+			// 	stoppingToken);
 
 			string fanSpeedCommand = string.Format(
 				STATIC_FAN_SPEED_FORMAT_STRING,
 				_settings.ManualModeFanPercentage.ToString("X"));
 
-			await ExecuteIpmiToolCommand(fanSpeedCommand, stoppingToken);
+			// await ExecuteIpmiToolCommand(fanSpeedCommand, stoppingToken);
 			_currentMode = OperatingMode.MANUAL;
 			if (_manualSwitchAttemptCount >= 1)
 			{
@@ -232,7 +232,7 @@ namespace JDMallen.IPMITempMonitor
 			// unless a path is explicitly provided in appsettings.json.
 			string ipmiPath =
 				string.IsNullOrWhiteSpace(_settings.PathToIpmiToolIfNotDefault)
-					? _settings.Platform switch
+					? Settings.Platform switch
 					{
 						Platform.Linux   => "/usr/bin/ipmitool",
 						Platform.Windows => @"C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe",
@@ -331,12 +331,12 @@ namespace JDMallen.IPMITempMonitor
 		/// </param>
 		public override async Task StartAsync(CancellationToken stoppingToken)
 		{
-			_logger.LogDebug($"Detected OS: {_settings.Platform:G}.");
+			_logger.LogDebug($"Detected OS: {Settings.Platform:G}.");
 
 			await CheckLatestTemperature(stoppingToken);
 
 			_logger.LogInformation(
-				_logPrefix + "Monitor starting | Setting initial fan control to {operatingMode}",
+				LOG_PREFIX + "Monitor starting | Setting initial fan control to {operatingMode}",
 				_lastRecordedTemp,
 				GetRollingAverageTemperature(),
 				OperatingMode.AUTOMATIC);

@@ -3,18 +3,18 @@ using Microsoft.Extensions.Hosting;
 
 namespace JDMallen.IPMITempMonitor
 {
-	public class Program
+	public static class Program
 	{
 		public static void Main(string[] args)
 		{
-			var builder = CreateHostBuilder(args);
+			IHostBuilder builder = CreateHostBuilder(args);
 
-			var host = builder.Build(); // Separated for ease of inspection
+			IHost host = builder.Build(); // Separated for ease of inspection
 
 			host.Run();
 		}
 
-		public static IHostBuilder CreateHostBuilder(string[] args) =>
+		private static IHostBuilder CreateHostBuilder(string[] args) =>
 			Host.CreateDefaultBuilder(args)
 				.UseWindowsService()
 				.UseSystemd()
