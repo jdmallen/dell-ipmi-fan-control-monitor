@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using JDMallen.Toolbox.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ namespace JDMallen.IPMITempMonitor
 	{
 		private readonly ILogger<Worker> _logger;
 		private readonly Settings _settings;
+		private readonly IConfiguration _configuration;
 		private static DateTime _timeFellBelowTemp = DateTime.MinValue;
 		private static OperatingMode? _currentMode;
 		private readonly IHostEnvironment _environment;
@@ -31,20 +33,24 @@ namespace JDMallen.IPMITempMonitor
 		private const string DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND = "raw 0x30 0x30 0x01 0x00";
 		private const string STATIC_FAN_SPEED_FORMAT_STRING = "raw 0x30 0x30 0x02 0xff 0x{0}";
 
+		private const string DOCKER_ENV_VAR = "DOTNET_RUNNING_IN_CONTAINER";
+
 		public Worker(
 			ILogger<Worker> logger,
 			IOptions<Settings> settings,
 			IHostEnvironment environment,
-			IServiceScopeFactory scopeFactory) : base(logger, scopeFactory)
+			IServiceScopeFactory scopeFactory,
+			IConfiguration configuration) : base(logger, scopeFactory)
 		{
 			_logger = logger;
 			_environment = environment;
+			_configuration = configuration;
 			_settings = settings.Value;
 			_lastTenTemps = new List<int>(_settings.RollingAverageNumberOfTemps);
 		}
 
-		private string _logPrefix
-			= "Current temp: {lastRecordedTemp}°C | Average temp: {rollingAverageTemp}°C | ";
+		private const string LOG_PREFIX =
+			"Current temp: {lastRecordedTemp}Â°C | Average temp: {rollingAverageTemp}Â°C | ";
 
 		protected override async Task ExecuteInScopeAsync(
 			IServiceScope scope,
@@ -54,7 +60,7 @@ namespace JDMallen.IPMITempMonitor
 			double rollingAverageTemp = GetRollingAverageTemperature();
 
 			_logger.LogInformation(
-				_logPrefix + "Fan control: {operatingMode}",
+				LOG_PREFIX + "Fan control: {operatingMode}",
 				_lastRecordedTemp,
 				rollingAverageTemp,
 				_currentMode);
@@ -139,7 +145,7 @@ namespace JDMallen.IPMITempMonitor
 
 			// Using the default of (?<=0Eh|0Fh).+(\\d{2}) will return all 2-digit numbers in lines
 			// containing "0Eh" or "0Fh"-- in the above example, 30 and 31-- as captured groups.
-			var matches = Regex.Matches(
+			MatchCollection matches = Regex.Matches(
 				result,
 				_settings.RegexToRetrieveTemp,
 				RegexOptions.Multiline);
@@ -162,7 +168,7 @@ namespace JDMallen.IPMITempMonitor
 		{
 			double rollingAverageTemp = GetRollingAverageTemperature();
 			_logger.LogWarning(
-				_logPrefix + "Switching to {newOperatingMode} fan control",
+				LOG_PREFIX + "Switching to {newOperatingMode} fan control",
 				_lastRecordedTemp,
 				rollingAverageTemp,
 				OperatingMode.AUTOMATIC);
@@ -176,16 +182,16 @@ namespace JDMallen.IPMITempMonitor
 
 		private async Task SwitchToManualTempControl(CancellationToken stoppingToken)
 		{
-			var timeSinceLastActivation = DateTime.UtcNow - _timeFellBelowTemp;
+			TimeSpan timeSinceLastActivation = DateTime.UtcNow - _timeFellBelowTemp;
 
-			var threshold = TimeSpan.FromSeconds(_settings.BackToManualThresholdInSeconds);
+			TimeSpan threshold = TimeSpan.FromSeconds(_settings.BackToManualThresholdInSeconds);
 
 			if (timeSinceLastActivation < threshold)
 			{
 				var secondsRemaining =
 					(int) (threshold - timeSinceLastActivation).TotalSeconds;
 				_logger.LogInformation(
-					_logPrefix
+					LOG_PREFIX
 					+ "{newOperatingMode} delay threshold not yet met; "
 					+ "staying in {operatingMode} mode for {remaining} {unit}.",
 					_lastRecordedTemp,
@@ -199,7 +205,7 @@ namespace JDMallen.IPMITempMonitor
 			}
 
 			_logger.LogWarning(
-				_logPrefix
+				LOG_PREFIX
 				+ "Switching to {newOperatingMode} fan control | "
 				+ "Attempt {attemptNumber} of {totalAttemptCount}",
 				_lastRecordedTemp,
@@ -232,7 +238,7 @@ namespace JDMallen.IPMITempMonitor
 			// unless a path is explicitly provided in appsettings.json.
 			string ipmiPath =
 				string.IsNullOrWhiteSpace(_settings.PathToIpmiToolIfNotDefault)
-					? _settings.Platform switch
+					? Settings.Platform switch
 					{
 						Platform.Linux   => "/usr/bin/ipmitool",
 						Platform.Windows => @"C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe",
@@ -298,16 +304,22 @@ namespace JDMallen.IPMITempMonitor
 
 		private async Task<string> ReadTestResponseFile(CancellationToken stoppingToken)
 		{
+			const string filename = "test_temp_response.txt";
 			try
 			{
-				return await File.ReadAllTextAsync(
-					Path.Combine(
+				// If not in docker, use the file from the source directory.
+				var isInDocker = _configuration.GetValue<bool>(DOCKER_ENV_VAR);
+				var path = isInDocker
+					? Path.Combine(AppContext.BaseDirectory, filename)
+					: Path.Combine(
 						AppContext.BaseDirectory,
 						$"..{Path.DirectorySeparatorChar}",
 						$"..{Path.DirectorySeparatorChar}",
 						$"..{Path.DirectorySeparatorChar}",
-						"test_temp_response.txt"),
-					stoppingToken);
+						filename
+					);
+				
+				return await File.ReadAllTextAsync(path, stoppingToken);
 			}
 			catch (FileNotFoundException ex)
 			{
@@ -331,12 +343,14 @@ namespace JDMallen.IPMITempMonitor
 		/// </param>
 		public override async Task StartAsync(CancellationToken stoppingToken)
 		{
-			_logger.LogDebug($"Detected OS: {_settings.Platform:G}.");
+			var isInDocker = _configuration.GetValue<bool>(DOCKER_ENV_VAR);
+			_logger.LogDebug(
+				$"Detected OS: {Settings.Platform:G}{(isInDocker ? " (Docker container)" : "")}");
 
 			await CheckLatestTemperature(stoppingToken);
 
 			_logger.LogInformation(
-				_logPrefix + "Monitor starting | Setting initial fan control to {operatingMode}",
+				LOG_PREFIX + "Monitor starting | Setting initial fan control to {operatingMode}",
 				_lastRecordedTemp,
 				GetRollingAverageTemperature(),
 				OperatingMode.AUTOMATIC);

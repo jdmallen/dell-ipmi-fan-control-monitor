@@ -27,7 +27,7 @@ namespace JDMallen.IPMITempMonitor
 
 		public int BackToManualThresholdInSeconds { get; set; } = 60;
 
-		public Platform Platform
+		public static Platform Platform
 		{
 			get
 			{

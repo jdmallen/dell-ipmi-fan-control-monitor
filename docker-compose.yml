@@ -1,0 +1,8 @@
+version: 3.7
+
+services:
+  ipmi-temp-monitor:
+    build: .
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - Settings__IpmiPassword=
