@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -56,7 +57,65 @@ namespace JDMallen.IPMITempMonitor
 		}
 
 		private const string LOG_PREFIX =
-			"[{dateTime}] Current temp: {lastRecordedTemp} C | Average temp: {rollingAverageTemp} C | ";
+			"[{dateTime}] Current temp: {lastRecordedTemp} C | Average temp: {rollingAverageTemp} C";
+
+		private void LogDebug(string str = "", params object[] addlArgs)
+		{
+			Log(str, LogLevel.Debug, addlArgs: addlArgs);
+		}
+
+		private void LogInfo(string str = "", params object[] addlArgs)
+		{
+			Log(str, LogLevel.Information, addlArgs: addlArgs);
+		}
+
+		private void LogWarning(string str = "", params object[] addlArgs)
+		{
+			Log(str, LogLevel.Warning, addlArgs: addlArgs);
+		}
+
+		private void LogError(Exception exception = null, string str = "", params object[] addlArgs)
+		{
+			Log(
+				str,
+				LogLevel.Warning,
+				exception,
+				addlArgs);
+		}
+
+		private void LogCritical(
+			Exception exception = null,
+			string str = "",
+			params object[] addlArgs)
+		{
+			Log(
+				str,
+				LogLevel.Critical,
+				exception,
+				addlArgs);
+		}
+
+		private void Log(
+			string str = "",
+			LogLevel logLevel = LogLevel.Information,
+			Exception exception = null,
+			params object[] addlArgs)
+		{
+			string message = string.IsNullOrWhiteSpace(str) ? LOG_PREFIX : LOG_PREFIX + " | " + str;
+			double rollingAverageTemp = GetRollingAverageTemperature();
+			var args = new List<object>
+			{
+				DateTime.Now.ToString(ISO8601_3_MILLIS),
+				_lastRecordedTemp,
+				rollingAverageTemp > 9000 ? "-" : rollingAverageTemp,
+			};
+			args.AddRange(addlArgs);
+			_logger.Log(
+				logLevel,
+				exception,
+				message,
+				args.ToArray());
+		}
 
 		protected override async Task ExecuteInScopeAsync(
 			IServiceScope scope,
@@ -65,15 +124,13 @@ namespace JDMallen.IPMITempMonitor
 			await CheckLatestTemperature(stoppingToken);
 			double rollingAverageTemp = GetRollingAverageTemperature();
 
-			_logger.LogInformation(
-				LOG_PREFIX + "Fan control: {operatingMode}",
-				DateTime.Now.ToString(ISO8601_3_MILLIS),
-				_lastRecordedTemp,
-				rollingAverageTemp,
-				_currentMode);
+			LogInfo(
+				"Fan control: {operatingMode}",
+				_currentMode ?? OperatingMode.UNKNOWN);
 
 			// If the temp goes above the max threshold, immediately switch to AUTOMATIC fan mode.
-			if (_lastRecordedTemp > _settings.MaxTempInC || rollingAverageTemp > _settings.MaxTempInC)
+			if (_lastRecordedTemp > _settings.MaxTempInC
+				|| rollingAverageTemp > _settings.MaxTempInC)
 			{
 				_belowTemp = false;
 				if (_currentMode == OperatingMode.AUTOMATIC)
@@ -126,7 +183,9 @@ namespace JDMallen.IPMITempMonitor
 			_lastTenTemps.Add(temp);
 		}
 
-		private double GetRollingAverageTemperature() => Math.Round(_lastTenTemps.Average(), 1);
+		private double GetRollingAverageTemperature() => Math.Round(
+			_lastTenTemps != null && _lastTenTemps.Any() ? _lastTenTemps.Average() : 9999,
+			1);
 
 		/// <summary>
 		/// Calls iDRAC for latest temperature.
@@ -145,7 +204,6 @@ namespace JDMallen.IPMITempMonitor
 		/// <returns></returns>
 		private async Task CheckLatestTemperature(CancellationToken cancellationToken)
 		{
-
 			// Get the output string like the one in <remarks> above. Using Polly to handle if/when
 			// the result is empty, which can happen from time to time.
 			int retryCount = _settings.PollyRetryOnFailureCount;
@@ -161,7 +219,7 @@ namespace JDMallen.IPMITempMonitor
 					delay,
 					(_, span, iteration, _) =>
 					{
-						_logger.LogWarning(
+						LogWarning(
 							"Temperature check command returned empty result. "
 							+ "Trying next of {retries} attempt(s) after {span} delay.",
 							retryCount - iteration + 1,
@@ -175,7 +233,7 @@ namespace JDMallen.IPMITempMonitor
 
 			if (policyExecutionResult.Outcome == OutcomeType.Failure)
 			{
-				_logger.LogError(
+				LogError(
 					policyExecutionResult.FinalException,
 					"Error fetching temperature after {retries} attempts!",
 					retryCount);
@@ -213,12 +271,8 @@ namespace JDMallen.IPMITempMonitor
 
 		private async Task SwitchToAutomaticTempControl(CancellationToken stoppingToken)
 		{
-			double rollingAverageTemp = GetRollingAverageTemperature();
-			_logger.LogWarning(
-				LOG_PREFIX + "Switching to {newOperatingMode} fan control",
-				DateTime.Now.ToString(ISO8601_3_MILLIS),
-				_lastRecordedTemp,
-				rollingAverageTemp,
+			LogWarning(
+				"Switching to {newOperatingMode} fan control",
 				OperatingMode.AUTOMATIC);
 
 			await ExecuteIpmiToolCommand(
@@ -238,13 +292,10 @@ namespace JDMallen.IPMITempMonitor
 			{
 				var secondsRemaining =
 					(int) (threshold - timeSinceLastActivation).TotalSeconds;
-				_logger.LogInformation(
-					LOG_PREFIX
-					+ "{newOperatingMode} delay threshold not yet met; "
+
+				LogWarning(
+					"{newOperatingMode} delay threshold not yet met; "
 					+ "staying in {operatingMode} mode for {remaining} {unit}.",
-					DateTime.Now.ToString(ISO8601_3_MILLIS),
-					_lastRecordedTemp,
-					GetRollingAverageTemperature(),
 					OperatingMode.MANUAL,
 					OperatingMode.AUTOMATIC,
 					secondsRemaining,
@@ -253,13 +304,9 @@ namespace JDMallen.IPMITempMonitor
 				return;
 			}
 
-			_logger.LogWarning(
-				LOG_PREFIX
-				+ "Switching to {newOperatingMode} fan control | "
+			LogInfo(
+				"Switching to {newOperatingMode} fan control | "
 				+ "Attempt {attemptNumber} of {totalAttemptCount}",
-				DateTime.Now.ToString(ISO8601_3_MILLIS),
-				_lastRecordedTemp,
-				GetRollingAverageTemperature(),
 				OperatingMode.MANUAL,
 				_settings.ManualModeSwitchReattempts - _manualSwitchAttemptCount + 1,
 				_settings.ManualModeSwitchReattempts);
@@ -300,10 +347,10 @@ namespace JDMallen.IPMITempMonitor
 				$"-I lanplus -H {_settings.IpmiHost} -U {_settings.IpmiUser} "
 				+ $"-P {_settings.IpmiPassword} {command}";
 
-			_logger.LogDebug(
+			LogDebug(
 				"Executing: {ipmiPath} {args}",
 				ipmiPath,
-				args.Replace(_settings.IpmiPassword, "{password}"));
+				args.Replace(_settings.IpmiPassword, "<password>"));
 
 			if (_environment.IsDevelopment())
 			{
@@ -349,7 +396,7 @@ namespace JDMallen.IPMITempMonitor
 					delay,
 					(exception, span, iteration, _) =>
 					{
-						_logger.LogError(
+						LogError(
 							exception,
 							"Process {process} with args {args} threw exception. "
 							+ "Trying next of {retries} attempt(s) after {span} delay.",
@@ -373,7 +420,7 @@ namespace JDMallen.IPMITempMonitor
 				return policyExecutionResult.Result;
 			}
 
-			_logger.LogCritical(
+			LogCritical(
 				policyExecutionResult.FinalException,
 				"Error calling ipmitool after {retries} attempts!",
 				retryCount);
@@ -404,13 +451,13 @@ namespace JDMallen.IPMITempMonitor
 			}
 			catch (FileNotFoundException ex)
 			{
-				_logger.LogWarning(ex, "Unable to find test file; returning empty string.");
+				LogError(ex, "Unable to find test file; returning empty string.");
 
 				return string.Empty;
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Unknown error reading test file; returning empty string.");
+				LogError(ex, "Unknown error reading test file; returning empty string.");
 
 				return string.Empty;
 			}
@@ -425,16 +472,14 @@ namespace JDMallen.IPMITempMonitor
 		public override async Task StartAsync(CancellationToken stoppingToken)
 		{
 			var isInDocker = _configuration.GetValue<bool>(DOCKER_ENV_VAR);
-			_logger.LogDebug(
-				$"Detected OS: {Settings.Platform:G}{(isInDocker ? " (Docker container)" : "")}");
+			LogDebug(
+				"Detected OS {os}",
+				Settings.Platform.ToString("G") + (isInDocker ? " (Docker container)" : ""));
 
 			await CheckLatestTemperature(stoppingToken);
 
-			_logger.LogInformation(
-				LOG_PREFIX + "Monitor starting | Setting initial fan control to {operatingMode}",
-				DateTime.Now.ToString(ISO8601_3_MILLIS),
-				_lastRecordedTemp,
-				GetRollingAverageTemperature(),
+			LogInfo(
+				"Monitor starting | Setting initial fan control to {operatingMode}",
 				OperatingMode.AUTOMATIC);
 
 			_currentMode = OperatingMode.AUTOMATIC;
@@ -450,14 +495,16 @@ namespace JDMallen.IPMITempMonitor
 		/// <param name="stoppingToken">Indicates that the shutdown process should no longer be graceful.</param>
 		public override Task StopAsync(CancellationToken stoppingToken)
 		{
-			_logger.LogWarning("Monitor stopping");
+			LogWarning("Monitor stopping");
 
 			return base.StopAsync(stoppingToken);
 		}
 	}
 
+	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	public enum OperatingMode
 	{
+		UNKNOWN,
 		AUTOMATIC,
 		MANUAL,
 	}
