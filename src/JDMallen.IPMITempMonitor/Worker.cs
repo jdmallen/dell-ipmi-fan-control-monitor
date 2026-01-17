@@ -1,3 +1,4 @@
+using JDMallen.IPMITempMonitor.Logging;
 using JDMallen.IPMITempMonitor.Services;
 using JDMallen.Toolbox.Hosting;
 using Microsoft.Extensions.Options;
@@ -18,10 +19,6 @@ public class Worker(
 	: ScopedBackgroundService<Worker>(logger, scopeFactory)
 {
 	private const string ISO8601_3_MILLIS = "yyyy-MM-ddTHH:mm:ss.fffK";
-
-	private const string LOG_PREFIX =
-		"[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C";
-
 	private readonly ILogger<Worker> _logger = logger;
 	private readonly Settings _settings = settings.Value;
 	private bool _belowTemp;
@@ -36,9 +33,11 @@ public class Worker(
 		await temperatureMonitor.CheckLatestTemperatureAsync(stoppingToken);
 		double rollingAverageTemp = temperatureMonitor.RollingAverageTemperature;
 
-		LogInfo(
-			"Fan control: {OperatingMode}",
-			fanController.CurrentMode);
+		_logger.LogFanControl(
+			DateTime.Now.ToString(ISO8601_3_MILLIS),
+			temperatureMonitor.LastRecordedTemperature,
+			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp,
+			fanController.CurrentMode.ToString("G"));
 
 		// If the temp goes above the max threshold, immediately switch to AUTOMATIC fan mode.
 		if (temperatureMonitor.LastRecordedTemperature > _settings.MaxTempInC
@@ -73,42 +72,6 @@ public class Worker(
 		await fanController.SwitchToManualModeAsync(stoppingToken);
 	}
 
-	private void Log(
-		string str = "",
-		LogLevel logLevel = LogLevel.Information,
-		Exception? exception = null,
-		params object[] addlArgs)
-	{
-		string message = string.IsNullOrWhiteSpace(str) ? LOG_PREFIX : LOG_PREFIX + " | " + str;
-		double rollingAverageTemp = temperatureMonitor.RollingAverageTemperature;
-		var args = new List<object>
-		{
-			DateTime.Now.ToString(ISO8601_3_MILLIS),
-			temperatureMonitor.LastRecordedTemperature,
-			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp,
-		};
-		args.AddRange(addlArgs);
-		_logger.Log(
-			logLevel,
-			exception,
-			message,
-			args.ToArray());
-	}
-
-	private void LogDebug(string str = "", params object[] addlArgs)
-	{
-		Log(str, LogLevel.Debug, addlArgs: addlArgs);
-	}
-
-	private void LogInfo(string str = "", params object[] addlArgs)
-	{
-		Log(str, addlArgs: addlArgs);
-	}
-
-	private void LogWarning(string str = "", params object[] addlArgs)
-	{
-		Log(str, LogLevel.Warning, addlArgs: addlArgs);
-	}
 
 	/// <summary>
 	///     Triggered when the application host is ready to start the service.
@@ -118,15 +81,21 @@ public class Worker(
 	/// </param>
 	public override async Task StartAsync(CancellationToken stoppingToken)
 	{
-		LogDebug(
-			"Detected OS {Os}",
-			Settings.Platform.ToString("G"));
-
 		await temperatureMonitor.CheckLatestTemperatureAsync(stoppingToken);
 
-		LogInfo(
-			"Monitor starting | Setting initial fan control to {OperatingMode}",
-			OperatingMode.AUTOMATIC);
+		double rollingAverageTemp = temperatureMonitor.RollingAverageTemperature;
+
+		_logger.LogDetectedOs(
+			DateTime.Now.ToString(ISO8601_3_MILLIS),
+			temperatureMonitor.LastRecordedTemperature,
+			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp,
+			Settings.Platform.ToString("G"));
+
+		_logger.LogMonitorStarting(
+			DateTime.Now.ToString(ISO8601_3_MILLIS),
+			temperatureMonitor.LastRecordedTemperature,
+			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp,
+			OperatingMode.AUTOMATIC.ToString("G"));
 
 		await fanController.SwitchToAutomaticModeAsync(stoppingToken);
 
@@ -139,7 +108,12 @@ public class Worker(
 	/// <param name="stoppingToken">Indicates that the shutdown process should no longer be graceful.</param>
 	public override Task StopAsync(CancellationToken stoppingToken)
 	{
-		LogWarning("Monitor stopping");
+		double rollingAverageTemp = temperatureMonitor.RollingAverageTemperature;
+
+		_logger.LogMonitorStopping(
+			DateTime.Now.ToString(ISO8601_3_MILLIS),
+			temperatureMonitor.LastRecordedTemperature,
+			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp);
 
 		return base.StopAsync(stoppingToken);
 	}
