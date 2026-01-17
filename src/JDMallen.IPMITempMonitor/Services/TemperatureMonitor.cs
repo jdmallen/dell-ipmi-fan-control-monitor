@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using JDMallen.IPMITempMonitor.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
@@ -17,6 +18,12 @@ public class TemperatureMonitor(
 	private const string CHECK_TEMPERATURE_CONTROL_COMMAND = "sdr type temperature";
 	private readonly Settings _settings = settings.Value;
 	private readonly List<int> _temperatureHistory = new(settings.Value.RollingAverageNumberOfTemps);
+
+	// Compiled regex with timeout protection to prevent ReDoS attacks
+	private readonly Regex _temperatureRegex = new(
+		settings.Value.RegexToRetrieveTemp,
+		RegexOptions.Compiled | RegexOptions.Multiline,
+		TimeSpan.FromSeconds(1));
 
 	/// <inheritdoc />
 	public int LastRecordedTemperature { get; private set; }
@@ -58,9 +65,7 @@ public class TemperatureMonitor(
 				delay,
 				(_, span, iteration, _) =>
 				{
-					logger.LogWarning(
-						"Temperature check command returned empty result. "
-						+ "Trying next of {Retries} attempt(s) after {Span} delay",
+					logger.LogEmptyTemperatureResult(
 						retryCount - iteration + 1,
 						span);
 				})
@@ -72,9 +77,8 @@ public class TemperatureMonitor(
 
 		if (policyExecutionResult.Outcome == OutcomeType.Failure)
 		{
-			logger.LogError(
+			logger.LogTemperatureFetchError(
 				policyExecutionResult.FinalException,
-				"Error fetching temperature after {Retries} attempts!",
 				retryCount);
 
 			return;
@@ -84,10 +88,7 @@ public class TemperatureMonitor(
 
 		// Using the default of (?<=0Eh|0Fh).+(\d{2}) will return all 2-digit numbers in lines
 		// containing "0Eh" or "0Fh"-- in the above example, 30 and 31-- as captured groups.
-		MatchCollection matches = Regex.Matches(
-			result,
-			_settings.RegexToRetrieveTemp,
-			RegexOptions.Multiline);
+		MatchCollection matches = _temperatureRegex.Matches(result);
 
 		if (matches.Count == 0)
 		{

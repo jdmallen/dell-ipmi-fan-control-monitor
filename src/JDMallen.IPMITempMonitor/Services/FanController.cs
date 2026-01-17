@@ -1,3 +1,4 @@
+using JDMallen.IPMITempMonitor.Logging;
 using Microsoft.Extensions.Options;
 
 namespace JDMallen.IPMITempMonitor.Services;
@@ -24,9 +25,7 @@ public class FanController(
 	/// <inheritdoc />
 	public async Task SwitchToAutomaticModeAsync(CancellationToken cancellationToken)
 	{
-		logger.LogWarning(
-			"Switching to {NewOperatingMode} fan control",
-			OperatingMode.AUTOMATIC);
+		logger.LogSwitchingToAutomatic(OperatingMode.AUTOMATIC.ToString("G"));
 
 		await ipmiCommandExecutor.ExecuteCommandAsync(
 			ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
@@ -47,21 +46,17 @@ public class FanController(
 			var secondsRemaining =
 				(int)(threshold - timeSinceLastActivation).TotalSeconds;
 
-			logger.LogWarning(
-				"{NewOperatingMode} delay threshold not yet met; "
-				+ "staying in {OperatingMode} mode for {Remaining} {Unit}",
-				OperatingMode.MANUAL,
-				OperatingMode.AUTOMATIC,
+			logger.LogManualDelayThresholdNotMet(
+				OperatingMode.MANUAL.ToString("G"),
+				OperatingMode.AUTOMATIC.ToString("G"),
 				secondsRemaining,
 				secondsRemaining == 1 ? "second" : "seconds");
 
 			return false;
 		}
 
-		logger.LogInformation(
-			"Switching to {NewOperatingMode} fan control | "
-			+ "Attempt {AttemptNumber} of {TotalAttemptCount}",
-			OperatingMode.MANUAL,
+		logger.LogSwitchingToManual(
+			OperatingMode.MANUAL.ToString("G"),
 			_settings.ManualModeSwitchReattempts - _manualSwitchAttemptCount + 1,
 			_settings.ManualModeSwitchReattempts);
 

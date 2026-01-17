@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using JDMallen.IPMITempMonitor.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
@@ -41,8 +42,7 @@ public class IPMICommandExecutor(
 			$"-I lanplus -H {_settings.IPMIHost} -U {_settings.IPMIUser} "
 			+ $"-P {_settings.IPMIPassword} {command}";
 
-		logger.LogDebug(
-			"Executing: {IPMIPath} {Args}",
+		logger.LogExecutingCommand(
 			ipmiPath,
 			args.Replace(_settings.IPMIPassword, "<password>"));
 
@@ -83,13 +83,13 @@ public class IPMICommandExecutor(
 		}
 		catch (FileNotFoundException ex)
 		{
-			logger.LogError(ex, "Unable to find test file; returning empty string");
+			logger.LogTestFileNotFound(ex);
 
 			return string.Empty;
 		}
 		catch (Exception ex)
 		{
-			logger.LogError(ex, "Unknown error reading test file; returning empty string");
+			logger.LogUnknownErrorReadingTestFile(ex);
 
 			return string.Empty;
 		}
@@ -129,10 +129,8 @@ public class IPMICommandExecutor(
 				delay,
 				(exception, span, iteration, _) =>
 				{
-					logger.LogError(
+					logger.LogProcessError(
 						exception,
-						"Process {Process} with args {Args} threw exception. "
-						+ "Trying next of {Retries} attempt(s) after {Span} delay",
 						process.StartInfo.FileName,
 						process.StartInfo.Arguments,
 						retryCount - iteration + 1,
@@ -153,9 +151,8 @@ public class IPMICommandExecutor(
 			return policyExecutionResult.Result;
 		}
 
-		logger.LogCritical(
-			policyExecutionResult.FinalException,
-			"Error calling ipmitool after {Retries} attempts!",
+		logger.LogCriticalIPMIFailure(
+			policyExecutionResult.FinalException!,
 			retryCount);
 
 		// Critical failure - stop the application

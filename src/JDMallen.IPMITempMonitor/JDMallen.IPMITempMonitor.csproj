@@ -28,7 +28,7 @@
 
     <ItemGroup>
         <Reference Include="JDMallen.Toolbox.Hosting">
-            <HintPath>..\..\toolbox\JDMallen.Toolbox.Hosting\bin\Release\netstandard2.1\JDMallen.Toolbox.Hosting.dll</HintPath>
+            <HintPath>..\..\..\toolbox\JDMallen.Toolbox.Hosting\bin\Release\netstandard2.1\JDMallen.Toolbox.Hosting.dll</HintPath>
         </Reference>
     </ItemGroup>
 </Project>

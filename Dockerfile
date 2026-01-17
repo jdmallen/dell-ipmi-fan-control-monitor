@@ -6,10 +6,10 @@ RUN apt-get -y install ipmitool
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["JDMallen.IPMITempMonitor/JDMallen.IPMITempMonitor.csproj", "JDMallen.IPMITempMonitor/"]
-RUN dotnet restore "JDMallen.IPMITempMonitor/JDMallen.IPMITempMonitor.csproj"
+COPY ["src/JDMallen.IPMITempMonitor/JDMallen.IPMITempMonitor.csproj", "src/JDMallen.IPMITempMonitor/"]
+RUN dotnet restore "src/JDMallen.IPMITempMonitor/JDMallen.IPMITempMonitor.csproj"
 COPY . .
-WORKDIR "/src/JDMallen.IPMITempMonitor"
+WORKDIR "/src/src/JDMallen.IPMITempMonitor"
 RUN dotnet build "JDMallen.IPMITempMonitor.csproj" -c Release -o /app/build
 
 FROM build AS publish

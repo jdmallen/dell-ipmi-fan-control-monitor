@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29318.209
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JDMallen.IPMITempMonitor", "JDMallen.IPMITempMonitor\JDMallen.IPMITempMonitor.csproj", "{71604D3B-4116-4B1B-83E2-CCBE8B14F847}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JDMallen.IPMITempMonitor", "src\JDMallen.IPMITempMonitor\JDMallen.IPMITempMonitor.csproj", "{71604D3B-4116-4B1B-83E2-CCBE8B14F847}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JDMallen.IPMITempMonitor.Tests", "test\JDMallen.IPMITempMonitor.Tests\JDMallen.IPMITempMonitor.Tests.csproj", "{8A2F3C4D-5E67-4F89-A0B1-2C3D4E5F6A7B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A33A1555-B943-4B48-9C70-2C976775BE99}"
 	ProjectSection(SolutionItems) = preProject
@@ -27,6 +29,10 @@ Global
 		{71604D3B-4116-4B1B-83E2-CCBE8B14F847}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{71604D3B-4116-4B1B-83E2-CCBE8B14F847}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{71604D3B-4116-4B1B-83E2-CCBE8B14F847}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A2F3C4D-5E67-4F89-A0B1-2C3D4E5F6A7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A2F3C4D-5E67-4F89-A0B1-2C3D4E5F6A7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A2F3C4D-5E67-4F89-A0B1-2C3D4E5F6A7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A2F3C4D-5E67-4F89-A0B1-2C3D4E5F6A7B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
