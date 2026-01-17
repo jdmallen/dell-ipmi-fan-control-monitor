@@ -1,61 +1,59 @@
-﻿using System;
 using System.Runtime.InteropServices;
 
-namespace JDMallen.IPMITempMonitor
+namespace JDMallen.IPMITempMonitor;
+
+public class Settings
 {
-	public class Settings
+	public int BackToManualThresholdInSeconds { get; set; } = 60;
+
+	public required string IPMIHost { get; set; }
+
+	public required string IPMIPassword { get; set; }
+
+	public required string IPMIUser { get; set; }
+
+	public int ManualModeFanPercentage { get; set; } = 30;
+
+	public int ManualModeSwitchReattempts { get; set; } = 2;
+
+	public int MaxTempInC { get; set; } = 50;
+
+	public string? PathToIPMIToolIfNotDefault { get; set; }
+
+	public static Platform Platform
 	{
-		public string IpmiHost { get; set; }
-
-		public string IpmiUser { get; set; }
-
-		public string IpmiPassword { get; set; }
-
-		public string PathToIpmiToolIfNotDefault { get; set; }
-
-		public string RegexToRetrieveTemp { get; set; }
-
-		public int MaxTempInC { get; set; } = 50;
-
-		public int ManualModeFanPercentage { get; set; } = 30;
-
-		public int ManualModeSwitchReattempts { get; set; } = 2;
-
-		public int PollingIntervalInSeconds { get; set; } = 30;
-
-		public int RollingAverageNumberOfTemps { get; set; } = 10;
-
-		public int BackToManualThresholdInSeconds { get; set; } = 60;
-
-		public int PollyRetryOnFailureCount { get; set; } = 5;
-
-		public int PollyInitialDelayInMillis { get; set; } = 1000;
-
-		public double PollyDelayIncreaseFactor { get; set; } = 2.0;
-
-		public static Platform Platform
+		get
 		{
-			get
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
-				if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-				{
-					return Platform.Windows;
-				}
-
-				if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-				{
-					return Platform.Linux;
-				}
-
-				throw new PlatformNotSupportedException(
-					"Only works on Windows or Linux.");
+				return Platform.Windows;
 			}
+
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+			{
+				return Platform.Linux;
+			}
+
+			throw new PlatformNotSupportedException(
+				"Only works on Windows or Linux.");
 		}
 	}
 
-	public enum Platform
-	{
-		Linux,
-		Windows
-	}
+	public int PollingIntervalInSeconds { get; set; } = 30;
+
+	public double PollyDelayIncreaseFactor { get; set; } = 2.0;
+
+	public int PollyInitialDelayInMillis { get; set; } = 1000;
+
+	public int PollyRetryOnFailureCount { get; set; } = 5;
+
+	public required string RegexToRetrieveTemp { get; set; }
+
+	public int RollingAverageNumberOfTemps { get; set; } = 10;
+}
+
+public enum Platform
+{
+	Linux,
+	Windows,
 }

@@ -1,33 +1,34 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <UserSecretsId>dotnet-R620TempMonitor-DA920151-D432-4985-B484-8CBFC5C6AD9D</UserSecretsId>
-    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <UserSecretsId>dotnet-R620TempMonitor-DA920151-D432-4985-B484-8CBFC5C6AD9D</UserSecretsId>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Content Include="test_temp_response.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
+    <ItemGroup>
+        <Content Include="test_temp_response.txt">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
 
-  <ItemGroup>
-<!--    <PackageReference Include="JDMallen.Toolbox.Hosting" Version="2.4.0" />-->
-    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.2" />
-    <PackageReference Include="Polly" Version="8.6.5" />
-    <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
-  </ItemGroup>
+    <ItemGroup>
+        <!--    <PackageReference Include="JDMallen.Toolbox.Hosting" Version="2.4.0" />-->
+        <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.2"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.2"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.2"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+        <PackageReference Include="Polly" Version="8.6.5"/>
+        <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="JDMallen.Toolbox.Hosting">
-      <HintPath>..\..\toolbox\JDMallen.Toolbox.Hosting\bin\Release\netstandard2.1\JDMallen.Toolbox.Hosting.dll</HintPath>
-    </Reference>
-  </ItemGroup>
+    <ItemGroup>
+        <Reference Include="JDMallen.Toolbox.Hosting">
+            <HintPath>..\..\toolbox\JDMallen.Toolbox.Hosting\bin\Release\netstandard2.1\JDMallen.Toolbox.Hosting.dll</HintPath>
+        </Reference>
+    </ItemGroup>
 </Project>

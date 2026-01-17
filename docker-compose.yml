@@ -5,4 +5,4 @@ services:
     build: .
     environment:
       - DOTNET_ENVIRONMENT=Production
-      - Settings__IpmiPassword=
+      - Settings__IPMIPassword=
