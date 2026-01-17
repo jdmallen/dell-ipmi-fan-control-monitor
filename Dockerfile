@@ -1,10 +1,10 @@
-﻿FROM mcr.microsoft.com/dotnet/runtime:5.0 AS base
+﻿FROM mcr.microsoft.com/dotnet/runtime:10.0 AS base
 WORKDIR /app
-MAINTAINER jdmallen
+LABEL maintainer="jdmallen"
 RUN apt-get update && apt-get dist-upgrade -y
 RUN apt-get -y install ipmitool
 
-FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["JDMallen.IPMITempMonitor/JDMallen.IPMITempMonitor.csproj", "JDMallen.IPMITempMonitor/"]
 RUN dotnet restore "JDMallen.IPMITempMonitor/JDMallen.IPMITempMonitor.csproj"
