@@ -1,6 +1,6 @@
+using JDMallen.IPMITempMonitor.Hosting;
 using JDMallen.IPMITempMonitor.Logging;
 using JDMallen.IPMITempMonitor.Services;
-using JDMallen.Toolbox.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace JDMallen.IPMITempMonitor;

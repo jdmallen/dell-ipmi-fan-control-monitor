@@ -30,10 +30,4 @@
 		<ProjectReference Include="..\..\src\JDMallen.IPMITempMonitor\JDMallen.IPMITempMonitor.csproj"/>
 	</ItemGroup>
 
-	<ItemGroup>
-		<Reference Include="JDMallen.Toolbox.Hosting">
-			<HintPath>..\..\..\toolbox\JDMallen.Toolbox.Hosting\bin\Release\netstandard2.1\JDMallen.Toolbox.Hosting.dll</HintPath>
-		</Reference>
-	</ItemGroup>
-
 </Project>
