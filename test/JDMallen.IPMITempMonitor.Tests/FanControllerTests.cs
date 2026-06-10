@@ -30,7 +30,7 @@ public class FanControllerTests
 			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})",
 			BackToManualThresholdInSeconds = 2,
 			ManualModeSwitchReattempts = 2,
-			ManualModeFanPercentage = 30
+			ManualModeFanPercentage = 30,
 		};
 
 		_settingsOptions = Options.Create(_settings);
@@ -44,7 +44,10 @@ public class FanControllerTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(string.Empty);
 
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		await controller.SwitchToAutomaticModeAsync(CancellationToken.None);
@@ -61,7 +64,10 @@ public class FanControllerTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(string.Empty);
 
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		await controller.SwitchToAutomaticModeAsync(CancellationToken.None);
@@ -80,7 +86,10 @@ public class FanControllerTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(string.Empty);
 
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Record temperature below threshold and wait for threshold
 		controller.RecordTemperatureBelowThreshold();
@@ -107,7 +116,10 @@ public class FanControllerTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(string.Empty);
 
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		controller.RecordTemperatureBelowThreshold();
 		await Task.Delay(TimeSpan.FromSeconds(2.1));
@@ -127,7 +139,10 @@ public class FanControllerTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(string.Empty);
 
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		controller.RecordTemperatureBelowThreshold();
 
@@ -143,7 +158,10 @@ public class FanControllerTests
 	public void RecordTemperatureBelowThreshold_ShouldResetRetryCounter()
 	{
 		// Arrange
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		controller.RecordTemperatureBelowThreshold();
@@ -153,10 +171,14 @@ public class FanControllerTests
 	}
 
 	[Fact]
+	// ReSharper disable once AsyncMethodWithoutAwait
 	public async Task ShouldAttemptManualModeSwitch_ShouldReturnTrue_WhenNotInManualMode()
 	{
 		// Arrange
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		bool shouldAttempt = controller.ShouldAttemptManualModeSwitch();
@@ -173,7 +195,10 @@ public class FanControllerTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(string.Empty);
 
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		controller.RecordTemperatureBelowThreshold();
 		await Task.Delay(TimeSpan.FromSeconds(2.1));
@@ -193,7 +218,10 @@ public class FanControllerTests
 	public void CurrentMode_ShouldStartAsUnknown()
 	{
 		// Arrange
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act & Assert
 		controller.CurrentMode.Should().Be(OperatingMode.UNKNOWN);
@@ -214,7 +242,10 @@ public class FanControllerTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(string.Empty);
 
-		var controller = new FanController(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var controller = new FanController(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		controller.RecordTemperatureBelowThreshold();
 		await Task.Delay(TimeSpan.FromSeconds(2.1));
@@ -224,7 +255,9 @@ public class FanControllerTests
 
 		// Assert
 		_ipmiExecutorMock.Verify(
-			x => x.ExecuteCommandAsync($"raw 0x30 0x30 0x02 0xff {expectedHex}", It.IsAny<CancellationToken>()),
+			x => x.ExecuteCommandAsync(
+				$"raw 0x30 0x30 0x02 0xff {expectedHex}",
+				It.IsAny<CancellationToken>()),
 			Times.Once);
 	}
 }

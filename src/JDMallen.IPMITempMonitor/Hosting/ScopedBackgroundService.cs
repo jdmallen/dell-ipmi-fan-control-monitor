@@ -1,4 +1,6 @@
-using Microsoft.Extensions.DependencyInjection;
+// ReSharper disable VirtualMemberNeverOverridden.Global
+
+using JDMallen.IPMITempMonitor.Logging;
 
 namespace JDMallen.IPMITempMonitor.Hosting;
 
@@ -61,17 +63,23 @@ public abstract class ScopedBackgroundService<TService>(
 
 				if (previousValue == 1)
 				{
-					// Another execution is in progress.
-					if (OverlapBehavior == OverlapBehavior.SkipIfBusy)
+					switch (OverlapBehavior)
 					{
-						shouldExecute = false;
-						_logger.LogDebug(
-							"Skipping execution iteration because previous iteration is still running");
-					}
-					else if (OverlapBehavior == OverlapBehavior.WaitForCompletion)
-					{
-						shouldExecute = false;
-						needsWait = true;
+						// Another execution is in progress.
+						case OverlapBehavior.SkipIfBusy:
+							shouldExecute = false;
+							_logger.LogSkippingBusyIteration();
+
+							break;
+						case OverlapBehavior.WaitForCompletion:
+							shouldExecute = false;
+							needsWait = true;
+
+							break;
+						case OverlapBehavior.AllowOverlap:
+							break;
+						default:
+							throw new ArgumentOutOfRangeException($"Unsupported overlap behavior: {OverlapBehavior}");
 					}
 				}
 			}
@@ -83,15 +91,13 @@ public abstract class ScopedBackgroundService<TService>(
 					var sessionId = Guid.NewGuid();
 					using IDisposable? scope = _logger.BeginScope(sessionId);
 
-					_logger.LogTrace("Begin service execution iteration");
+					_logger.LogBeginIteration();
 					await ExecuteInScopeAsync(stoppingToken).ConfigureAwait(false);
-					_logger.LogTrace("End service execution iteration");
+					_logger.LogEndIteration();
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(
-						ex,
-						"Unhandled exception in service execution iteration");
+					_logger.LogUnhandledIterationException(ex);
 				}
 				finally
 				{
@@ -134,6 +140,7 @@ public abstract class ScopedBackgroundService<TService>(
 	///     The cancellation token that indicates when the service should stop.
 	/// </param>
 	protected abstract Task ExecuteInScopeAsync(
+		// ReSharper disable once UnusedParameter.Global
 		IServiceScope scope,
 		CancellationToken stoppingToken);
 }

@@ -10,9 +10,12 @@ public static class Program
 			.UseSystemd()
 			.ConfigureServices((hostContext, services) =>
 			{
-				// Register settings
-				services.Configure<Settings>(
-					hostContext.Configuration.GetSection("Settings"));
+				// Register settings, validating them against their DataAnnotations at
+				// startup so misconfiguration fails fast instead of at first use.
+				services.AddOptions<Settings>()
+					.Bind(hostContext.Configuration.GetSection("Settings"))
+					.ValidateDataAnnotations()
+					.ValidateOnStart();
 
 				// Register services as singletons since they maintain state across the application lifetime
 				services.AddSingleton<IIPMICommandExecutor, IPMICommandExecutor>();

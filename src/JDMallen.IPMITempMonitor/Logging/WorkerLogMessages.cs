@@ -8,7 +8,8 @@ internal static partial class WorkerLogMessages
 	[LoggerMessage(
 		EventId = 1,
 		Level = LogLevel.Debug,
-		Message = "[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C | Detected OS {Os}")]
+		Message
+			= "[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C | Detected OS {Os}")]
 	public static partial void LogDetectedOs(
 		this ILogger logger,
 		string dateTime,
@@ -19,7 +20,8 @@ internal static partial class WorkerLogMessages
 	[LoggerMessage(
 		EventId = 2,
 		Level = LogLevel.Information,
-		Message = "[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C | Fan control: {OperatingMode}")]
+		Message
+			= "[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C | Fan control: {OperatingMode}")]
 	public static partial void LogFanControl(
 		this ILogger logger,
 		string dateTime,
@@ -30,7 +32,8 @@ internal static partial class WorkerLogMessages
 	[LoggerMessage(
 		EventId = 3,
 		Level = LogLevel.Information,
-		Message = "[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C | Monitor starting | Setting initial fan control to {OperatingMode}")]
+		Message
+			= "[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C | Monitor starting | Setting initial fan control to {OperatingMode}")]
 	public static partial void LogMonitorStarting(
 		this ILogger logger,
 		string dateTime,
@@ -41,7 +44,8 @@ internal static partial class WorkerLogMessages
 	[LoggerMessage(
 		EventId = 4,
 		Level = LogLevel.Warning,
-		Message = "[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C | Monitor stopping")]
+		Message
+			= "[{DateTime}] Current temp: {LastRecordedTemp} C | Average temp: {RollingAverageTemp} C | Monitor stopping")]
 	public static partial void LogMonitorStopping(
 		this ILogger logger,
 		string dateTime,

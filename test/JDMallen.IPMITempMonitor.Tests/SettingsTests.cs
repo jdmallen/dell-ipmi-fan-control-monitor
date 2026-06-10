@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
 using Xunit;
 
@@ -8,6 +9,31 @@ namespace JDMallen.IPMITempMonitor.Tests;
 /// </summary>
 public class SettingsTests
 {
+	/// <summary>
+	///     Runs DataAnnotations validation over a Settings instance the same way
+	///     ValidateDataAnnotations() does at host startup.
+	/// </summary>
+	private static List<ValidationResult> Validate(Settings settings)
+	{
+		var results = new List<ValidationResult>();
+		Validator.TryValidateObject(
+			settings,
+			new ValidationContext(settings),
+			results,
+			validateAllProperties: true);
+
+		return results;
+	}
+
+	private static Settings CreateValidSettings() =>
+		new()
+		{
+			IPMIHost = "192.168.1.100",
+			IPMIPassword = "secret",
+			IPMIUser = "admin",
+			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})",
+		};
+
 	[Fact]
 	public void Settings_ShouldHaveDefaultValues()
 	{
@@ -17,7 +43,7 @@ public class SettingsTests
 			IPMIHost = "test-host",
 			IPMIPassword = "test-password",
 			IPMIUser = "test-user",
-			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})"
+			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})",
 		};
 
 		// Assert
@@ -51,7 +77,7 @@ public class SettingsTests
 			PollyDelayIncreaseFactor = 1.5,
 			PollyInitialDelayInMillis = 500,
 			PollyRetryOnFailureCount = 3,
-			RollingAverageNumberOfTemps = 15
+			RollingAverageNumberOfTemps = 15,
 		};
 
 		// Assert
@@ -81,6 +107,103 @@ public class SettingsTests
 		platform.Should().BeOneOf(Platform.Linux, Platform.Windows);
 	}
 
+	[Fact]
+	public void Validate_WithValidSettings_ShouldPass()
+	{
+		// Arrange
+		Settings settings = CreateValidSettings();
+
+		// Act
+		IReadOnlyList<ValidationResult> results = Validate(settings);
+
+		// Assert
+		results.Should().BeEmpty();
+	}
+
+	[Fact]
+	public void Validate_WithEmptyPassword_ShouldPass()
+	{
+		// Arrange - empty password is valid (Development uses mocked IPMI calls).
+		Settings settings = CreateValidSettings();
+		settings.IPMIPassword = string.Empty;
+
+		// Act
+		IReadOnlyList<ValidationResult> results = Validate(settings);
+
+		// Assert
+		results.Should().BeEmpty();
+	}
+
+	[Theory]
+	[InlineData("")]
+	[InlineData(" ")]
+	public void Validate_WithMissingHost_ShouldFail(string host)
+	{
+		// Arrange
+		Settings settings = CreateValidSettings();
+		settings.IPMIHost = host;
+
+		// Act
+		IReadOnlyList<ValidationResult> results = Validate(settings);
+
+		// Assert
+		results.Should()
+			.Contain(result =>
+				result.MemberNames.Contains(nameof(Settings.IPMIHost)));
+	}
+
+	[Fact]
+	public void Validate_WithInvalidRegex_ShouldFail()
+	{
+		// Arrange - unbalanced parenthesis is not a valid pattern.
+		Settings settings = CreateValidSettings();
+		settings.RegexToRetrieveTemp = "(?<=unclosed";
+
+		// Act
+		IReadOnlyList<ValidationResult> results = Validate(settings);
+
+		// Assert
+		results.Should()
+			.Contain(result =>
+				result.MemberNames.Contains(nameof(Settings.RegexToRetrieveTemp)));
+	}
+
+	[Theory]
+	[InlineData(0)]
+	[InlineData(201)]
+	public void Validate_WithOutOfRangeMaxTemp_ShouldFail(int maxTemp)
+	{
+		// Arrange
+		Settings settings = CreateValidSettings();
+		settings.MaxTempInC = maxTemp;
+
+		// Act
+		IReadOnlyList<ValidationResult> results = Validate(settings);
+
+		// Assert
+		results.Should()
+			.Contain(result =>
+				result.MemberNames.Contains(nameof(Settings.MaxTempInC)));
+	}
+
+	[Theory]
+	[InlineData(-1)]
+	[InlineData(101)]
+	public void Validate_WithOutOfRangeFanPercentage_ShouldFail(int fanPercentage)
+	{
+		// Arrange
+		Settings settings = CreateValidSettings();
+		settings.ManualModeFanPercentage = fanPercentage;
+
+		// Act
+		IReadOnlyList<ValidationResult> results = Validate(settings);
+
+		// Assert
+		results.Should()
+			.Contain(result =>
+				result.MemberNames.Contains(nameof(Settings.ManualModeFanPercentage)));
+	}
+
 	[Theory]
 	[InlineData("")]
 	[InlineData(null)]
@@ -93,7 +216,7 @@ public class SettingsTests
 			IPMIPassword = "test-password",
 			IPMIUser = "test-user",
 			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})",
-			PathToIPMIToolIfNotDefault = path
+			PathToIPMIToolIfNotDefault = path,
 		};
 
 		// Assert

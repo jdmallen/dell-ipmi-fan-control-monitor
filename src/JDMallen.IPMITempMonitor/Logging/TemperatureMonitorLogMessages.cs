@@ -8,7 +8,8 @@ internal static partial class TemperatureMonitorLogMessages
 	[LoggerMessage(
 		EventId = 200,
 		Level = LogLevel.Warning,
-		Message = "Temperature check command returned empty result. Trying next of {Retries} attempt(s) after {Span} delay")]
+		Message
+			= "Temperature check command returned empty result. Trying next of {Retries} attempt(s) after {Span} delay")]
 	public static partial void LogEmptyTemperatureResult(
 		this ILogger logger,
 		int retries,

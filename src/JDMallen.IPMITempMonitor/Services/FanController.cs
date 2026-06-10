@@ -1,5 +1,8 @@
+using System.Globalization;
+using System.Text;
 using JDMallen.IPMITempMonitor.Logging;
 using Microsoft.Extensions.Options;
+using static JDMallen.IPMITempMonitor.OperatingMode;
 
 namespace JDMallen.IPMITempMonitor.Services;
 
@@ -14,24 +17,28 @@ public class FanController(
 {
 	private const string ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND = "raw 0x30 0x30 0x01 0x01";
 	private const string DISABLE_AUTOMATIC_TEMP_CONTROL_COMMAND = "raw 0x30 0x30 0x01 0x00";
-	private const string STATIC_FAN_SPEED_FORMAT_STRING = "raw 0x30 0x30 0x02 0xff 0x{0}";
+
+	// Cached parsed format reused on every manual-mode switch, avoiding re-parsing the
+	// template on each string.Format call. {0} is the fan speed percentage in hex.
+	private static readonly CompositeFormat StaticFanSpeedFormat =
+		CompositeFormat.Parse("raw 0x30 0x30 0x02 0xff 0x{0}");
 	private readonly Settings _settings = settings.Value;
 	private int _manualSwitchAttemptCount;
 	private DateTime _timeFellBelowTemp = DateTime.MinValue;
 
 	/// <inheritdoc />
-	public OperatingMode CurrentMode { get; private set; } = OperatingMode.UNKNOWN;
+	public OperatingMode CurrentMode { get; private set; } = UNKNOWN;
 
 	/// <inheritdoc />
 	public async Task SwitchToAutomaticModeAsync(CancellationToken cancellationToken)
 	{
-		logger.LogSwitchingToAutomatic(OperatingMode.AUTOMATIC.ToString("G"));
+		logger.LogSwitchingToAutomatic(AUTOMATIC.ToString("G"));
 
 		await ipmiCommandExecutor.ExecuteCommandAsync(
 			ENABLE_AUTOMATIC_TEMP_CONTROL_COMMAND,
 			cancellationToken);
 
-		CurrentMode = OperatingMode.AUTOMATIC;
+		CurrentMode = AUTOMATIC;
 	}
 
 	/// <inheritdoc />
@@ -40,6 +47,9 @@ public class FanController(
 		TimeSpan timeSinceLastActivation = DateTime.UtcNow - _timeFellBelowTemp;
 		TimeSpan threshold = TimeSpan.FromSeconds(_settings.BackToManualThresholdInSeconds);
 
+		var manualMode = MANUAL.ToString("G");
+		var autoMode = AUTOMATIC.ToString("G");
+
 		// Safety check: ensure enough time has passed since temperature dropped
 		if (timeSinceLastActivation < threshold)
 		{
@@ -47,8 +57,8 @@ public class FanController(
 				(int)(threshold - timeSinceLastActivation).TotalSeconds;
 
 			logger.LogManualDelayThresholdNotMet(
-				OperatingMode.MANUAL.ToString("G"),
-				OperatingMode.AUTOMATIC.ToString("G"),
+				manualMode,
+				autoMode,
 				secondsRemaining,
 				secondsRemaining == 1 ? "second" : "seconds");
 
@@ -56,7 +66,7 @@ public class FanController(
 		}
 
 		logger.LogSwitchingToManual(
-			OperatingMode.MANUAL.ToString("G"),
+			manualMode,
 			_settings.ManualModeSwitchReattempts - _manualSwitchAttemptCount + 1,
 			_settings.ManualModeSwitchReattempts);
 
@@ -67,12 +77,13 @@ public class FanController(
 
 		// Set static fan speed
 		string fanSpeedCommand = string.Format(
-			STATIC_FAN_SPEED_FORMAT_STRING,
-			_settings.ManualModeFanPercentage.ToString("X"));
+			CultureInfo.CurrentCulture,
+			StaticFanSpeedFormat,
+			_settings.ManualModeFanPercentage.ToString("X", CultureInfo.CurrentCulture));
 
 		await ipmiCommandExecutor.ExecuteCommandAsync(fanSpeedCommand, cancellationToken);
 
-		CurrentMode = OperatingMode.MANUAL;
+		CurrentMode = MANUAL;
 
 		if (_manualSwitchAttemptCount >= 1)
 		{
@@ -99,5 +110,5 @@ public class FanController(
 
 	/// <inheritdoc />
 	public bool ShouldAttemptManualModeSwitch()
-		=> CurrentMode != OperatingMode.MANUAL || _manualSwitchAttemptCount > 0;
+		=> CurrentMode != MANUAL || _manualSwitchAttemptCount > 0;
 }

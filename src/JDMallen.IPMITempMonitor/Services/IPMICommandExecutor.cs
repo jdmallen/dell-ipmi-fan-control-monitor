@@ -34,17 +34,20 @@ public class IPMICommandExecutor(
 				{
 					Platform.Linux   => "/usr/bin/ipmitool",
 					Platform.Windows => @"C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe",
-					_                => throw new ArgumentOutOfRangeException(),
+					_ => throw new ArgumentOutOfRangeException(
+						Settings.Platform.ToString(),
+						"Platform not supported"),
 				}
 				: _settings.PathToIPMIToolIfNotDefault;
 
-		string args =
-			$"-I lanplus -H {_settings.IPMIHost} -U {_settings.IPMIUser} "
-			+ $"-P {_settings.IPMIPassword} {command}";
+		// The password is passed to ipmitool via the IPMI_PASSWORD environment variable
+		// (the -E flag), NOT on the command line (-P). A command-line password is
+		// visible to any user on the host via `ps`, /proc, etc.; the environment
+		// variable is set on the child process below in RunProcessAsync.
+		var args =
+			$"-I lanplus -H {_settings.IPMIHost} -U {_settings.IPMIUser} -E {command}";
 
-		logger.LogExecutingCommand(
-			ipmiPath,
-			args.Replace(_settings.IPMIPassword, "<password>"));
+		logger.LogExecutingCommand(ipmiPath, args);
 
 		if (environment.IsDevelopment())
 		{
@@ -120,6 +123,10 @@ public class IPMICommandExecutor(
 				RedirectStandardError = true,
 				UseShellExecute = false,
 				CreateNoWindow = true,
+
+				// Supplies the password for ipmitool's -E flag without exposing it on
+				// the command line. Only this child process inherits the variable.
+				Environment = { ["IPMI_PASSWORD"] = _settings.IPMIPassword },
 			},
 		};
 
@@ -142,7 +149,7 @@ public class IPMICommandExecutor(
 					process.Start();
 					await process.WaitForExitAsync(token);
 
-					return await process.StandardOutput.ReadToEndAsync();
+					return await process.StandardOutput.ReadToEndAsync(token);
 				},
 				cancellationToken);
 

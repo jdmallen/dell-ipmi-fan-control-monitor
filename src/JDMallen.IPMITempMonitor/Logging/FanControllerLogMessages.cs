@@ -16,7 +16,8 @@ internal static partial class FanControllerLogMessages
 	[LoggerMessage(
 		EventId = 301,
 		Level = LogLevel.Information,
-		Message = "Switching to {NewOperatingMode} fan control | Attempt {AttemptNumber} of {TotalAttemptCount}")]
+		Message
+			= "Switching to {NewOperatingMode} fan control | Attempt {AttemptNumber} of {TotalAttemptCount}")]
 	public static partial void LogSwitchingToManual(
 		this ILogger logger,
 		string newOperatingMode,
@@ -26,7 +27,8 @@ internal static partial class FanControllerLogMessages
 	[LoggerMessage(
 		EventId = 302,
 		Level = LogLevel.Warning,
-		Message = "{NewOperatingMode} delay threshold not yet met; staying in {OperatingMode} mode for {Remaining} {Unit}")]
+		Message
+			= "{NewOperatingMode} delay threshold not yet met; staying in {OperatingMode} mode for {Remaining} {Unit}")]
 	public static partial void LogManualDelayThresholdNotMet(
 		this ILogger logger,
 		string newOperatingMode,

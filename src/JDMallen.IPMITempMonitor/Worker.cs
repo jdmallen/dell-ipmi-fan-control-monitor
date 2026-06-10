@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using JDMallen.IPMITempMonitor.Hosting;
 using JDMallen.IPMITempMonitor.Logging;
 using JDMallen.IPMITempMonitor.Services;
@@ -10,6 +12,7 @@ namespace JDMallen.IPMITempMonitor;
 ///     Coordinates between TemperatureMonitor and FanController services to maintain
 ///     optimal server temperatures while minimizing fan noise.
 /// </summary>
+[SuppressMessage("Performance", "CA1873:Avoid potentially expensive logging")]
 public class Worker(
 	ILogger<Worker> logger,
 	IOptions<Settings> settings,
@@ -34,7 +37,7 @@ public class Worker(
 		double rollingAverageTemp = temperatureMonitor.RollingAverageTemperature;
 
 		_logger.LogFanControl(
-			DateTime.Now.ToString(ISO8601_3_MILLIS),
+			DateTime.Now.ToString(ISO8601_3_MILLIS, CultureInfo.CurrentCulture),
 			temperatureMonitor.LastRecordedTemperature,
 			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp,
 			fanController.CurrentMode.ToString("G"));
@@ -72,49 +75,48 @@ public class Worker(
 		await fanController.SwitchToManualModeAsync(stoppingToken);
 	}
 
-
 	/// <summary>
 	///     Triggered when the application host is ready to start the service.
 	/// </summary>
-	/// <param name="stoppingToken">
+	/// <param name="cancellationToken">
 	///     Indicates that the start process has been aborted.
 	/// </param>
-	public override async Task StartAsync(CancellationToken stoppingToken)
+	public override async Task StartAsync(CancellationToken cancellationToken)
 	{
-		await temperatureMonitor.CheckLatestTemperatureAsync(stoppingToken);
+		await temperatureMonitor.CheckLatestTemperatureAsync(cancellationToken);
 
 		double rollingAverageTemp = temperatureMonitor.RollingAverageTemperature;
 
 		_logger.LogDetectedOs(
-			DateTime.Now.ToString(ISO8601_3_MILLIS),
+			DateTime.Now.ToString(ISO8601_3_MILLIS, CultureInfo.CurrentCulture),
 			temperatureMonitor.LastRecordedTemperature,
 			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp,
 			Settings.Platform.ToString("G"));
 
 		_logger.LogMonitorStarting(
-			DateTime.Now.ToString(ISO8601_3_MILLIS),
+			DateTime.Now.ToString(ISO8601_3_MILLIS, CultureInfo.CurrentCulture),
 			temperatureMonitor.LastRecordedTemperature,
 			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp,
 			OperatingMode.AUTOMATIC.ToString("G"));
 
-		await fanController.SwitchToAutomaticModeAsync(stoppingToken);
+		await fanController.SwitchToAutomaticModeAsync(cancellationToken);
 
-		await base.StartAsync(stoppingToken);
+		await base.StartAsync(cancellationToken);
 	}
 
 	/// <summary>
 	///     Triggered when the application host is performing a graceful shutdown.
 	/// </summary>
-	/// <param name="stoppingToken">Indicates that the shutdown process should no longer be graceful.</param>
-	public override Task StopAsync(CancellationToken stoppingToken)
+	/// <param name="cancellationToken">Indicates that the shutdown process should no longer be graceful.</param>
+	public override Task StopAsync(CancellationToken cancellationToken)
 	{
 		double rollingAverageTemp = temperatureMonitor.RollingAverageTemperature;
 
 		_logger.LogMonitorStopping(
-			DateTime.Now.ToString(ISO8601_3_MILLIS),
+			DateTime.Now.ToString(ISO8601_3_MILLIS, CultureInfo.CurrentCulture),
 			temperatureMonitor.LastRecordedTemperature,
 			rollingAverageTemp > 9000 ? "-" : rollingAverageTemp);
 
-		return base.StopAsync(stoppingToken);
+		return base.StopAsync(cancellationToken);
 	}
 }

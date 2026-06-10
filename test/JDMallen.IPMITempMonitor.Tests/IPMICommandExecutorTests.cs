@@ -36,7 +36,7 @@ public class IPMICommandExecutorTests
 			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})",
 			PollyRetryOnFailureCount = 2,
 			PollyInitialDelayInMillis = 10,
-			PollyDelayIncreaseFactor = 1.5
+			PollyDelayIncreaseFactor = 1.5,
 		};
 
 		_settingsOptions = Options.Create(_settings);
@@ -77,7 +77,9 @@ public class IPMICommandExecutorTests
 				_applicationLifetimeMock.Object);
 
 			// Act
-			string result = await executor.ExecuteCommandAsync("sdr type temperature", CancellationToken.None);
+			string result = await executor.ExecuteCommandAsync(
+				"sdr type temperature",
+				CancellationToken.None);
 
 			// Assert
 			result.Should().Be(testContent);
@@ -108,7 +110,9 @@ public class IPMICommandExecutorTests
 			_applicationLifetimeMock.Object);
 
 		// Act
-		string result = await executor.ExecuteCommandAsync("raw 0x30 0x30 0x01 0x01", CancellationToken.None);
+		string result = await executor.ExecuteCommandAsync(
+			"raw 0x30 0x30 0x01 0x01",
+			CancellationToken.None);
 
 		// Assert
 		result.Should().BeEmpty();
@@ -147,7 +151,7 @@ public class IPMICommandExecutorTests
 			_applicationLifetimeMock.Object);
 
 		// Act
-		var task = executor.ExecuteCommandAsync("sdr type temperature", CancellationToken.None);
+		Task<string> task = executor.ExecuteCommandAsync("sdr type temperature", CancellationToken.None);
 
 		// Assert - Password should be masked in debug logs
 		// We can't directly verify the log message, but we ensure the method doesn't throw
@@ -165,10 +169,10 @@ public class IPMICommandExecutorTests
 			IPMIHost = host,
 			IPMIUser = user,
 			IPMIPassword = password,
-			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})"
+			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})",
 		};
 
-		var customOptions = Options.Create(customSettings);
+		IOptions<Settings> customOptions = Options.Create(customSettings);
 
 		// Act
 		var executor = new IPMICommandExecutor(
@@ -209,7 +213,9 @@ public class IPMICommandExecutorTests
 			_applicationLifetimeMock.Object);
 
 		// Act
-		string result = await executor.ExecuteCommandAsync("sdr type temperature", CancellationToken.None);
+		string result = await executor.ExecuteCommandAsync(
+			"sdr type temperature",
+			CancellationToken.None);
 
 		// Assert
 		result.Should().BeEmpty();
