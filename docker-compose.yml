@@ -1,8 +1,20 @@
-version: '3.7'
-
+# Minimal compose file for running the monitor against an iDRAC over the network.
+# Connection settings are read from a sibling `.env` file (see .env.example) so
+# the password never has to live in this committed file. Any value here overrides
+# the matching entry in appsettings.json (double underscore = nested setting).
 services:
   ipmi-temp-monitor:
     build: .
+    image: ipmi-temp-monitor
+    container_name: ipmi-temp-monitor
+    restart: unless-stopped
     environment:
       - DOTNET_ENVIRONMENT=Production
-      - Settings__IPMIPassword=
+      # IPMIHost and IPMIUser are required; the app refuses to start without them.
+      - Settings__IPMIHost=${IPMI_HOST}
+      - Settings__IPMIUser=${IPMI_USER}
+      - Settings__IPMIPassword=${IPMI_PASSWORD}
+      # Uncomment to tune behaviour (defaults come from appsettings.json):
+      # - Settings__MaxTempInC=70
+      # - Settings__ManualModeFanPercentage=10
+      # - Settings__PollingIntervalInSeconds=15
