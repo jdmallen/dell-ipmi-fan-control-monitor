@@ -20,7 +20,7 @@ intervals. As such, **USE AT YOUR OWN RISK**.
    `./ipmitool -I lanplus -H 10.10.1.2 -U root -P password sdr type temperature`
    where the host, user, and password are replaced as appropriate.
 2. Install [.NET Core runtime](https://dotnet.microsoft.com/download) on your
-   target machine, whether it's Windows or Linux.    
+   target machine, whether it's Windows or Linux.
    (Sorry, no Mac support yet, but I have a MBP coming soon and might add
    support later. It's just a few lines to support the process runner. I welcome
    pull requests.)
@@ -50,15 +50,19 @@ configuration from appsettings.json and you can keep it all in one spot.
 
 Here are the settings and what they do:
 
-- **IPMIHost**    
+- **IPMIHost**
   The address of your iDRAC device.
-- **IPMIUser**    
+- **IPMIUser**
   The user you configured for access in your iDRAC settings, usually "root".
-- **IPMIPassword**    
+- **IPMIPassword**
   The password. Note: You can leave this blank here and instead provide it in
   the environment variable "Settings__IPMIPassword", either system-wide or in
   the systemd service settings. See below.
-- **RegexToRetrieveTemp**    
+  The app never passes this password to `ipmitool` on the command line. Instead
+  it sets the `IPMI_PASSWORD` environment variable on the `ipmitool` child
+  process and invokes it with the `-E` flag, so the password is not exposed in
+  the host's process list (e.g. via `ps`).
+- **RegexToRetrieveTemp**
   This is how the app fetches the 2-digit temperature(s) from the output of
   the "sdr type temperature" ipmitool command. The default,
   `(?<=0Eh|0Fh).+(\d{2})`, works for me, but your output may look different from
@@ -73,17 +77,17 @@ Here are the settings and what they do:
   right. Then replace the Test String with _your_ ipmitool output for "sdr type
   temperature", and change the Regex to capture the same groups as mine did. The
   Regex matches on multiline, case-sensitive.
-- **MaxTempInC**    
+- **MaxTempInC**
   The temperature at which you want your server to switch to automatic fan
   control.
-- **PollingIntervalInSeconds**    
+- **PollingIntervalInSeconds**
   How often you want the app to check the temperature.
-- **RollingAverageNumberOfTemps**    
+- **RollingAverageNumberOfTemps**
   How many temperature readings you want as part of the average to be used to
   determine when it's safe to turn off automatic fan control. Multiply this
   value by your polling interval to get the total amount of time the rolling
   average covers.
-- **BackToManualThresholdInSeconds**    
+- **BackToManualThresholdInSeconds**
   How soon after the temperature drops below the maximum allowed that manual
   control can be engaged again. If your server drops to an average temp of 30
   over the span of 3 minutes, and your max is 50, but this is set to 300, it
@@ -92,14 +96,14 @@ Here are the settings and what they do:
   not flip-flopping between Automatic and Manual too frequently. It keeps it in
   Automatic fan control _juuuust_ a bit longer to ensure you're well below the
   threshold, and not _just_ under it.
-- **ManualModeFanPercentage**    
+- **ManualModeFanPercentage**
   The percentage of full speed you wish the fans to run in manual fan control
   mode. I set mine to 30, since that seems tolerable, and my R620 idles around
   37-38 C here. 100% is screaming loud, but cool. 15% is very quiet, but the
   server runs a bit too warm. Experiment first to find your sweet spot. Also,
   `ipmitool sdr list full | grep Fan` can tell you your current fan speed from
   that percentage.
-- **ManualModeSwitchReattempts**    
+- **ManualModeSwitchReattempts**
   Unfortunately, there is no known raw IPMI command to read the current mode of
   fan control and whether it's manual or automatic-- we can only set it. Very
   rarely, after the program performs a "fire and forget" setting of the mode
@@ -114,7 +118,7 @@ Here are the settings and what they do:
   to Automatic. Also, I've seen no instances of the opposite scenario
   occurring-- it getting stuck in Manual mode after going above threshold--
   which is obviously a very good thing.
-- **PathToIPMIToolIfNotDefault**    
+- **PathToIPMIToolIfNotDefault**
   If your ipmitool isn't located at `/usr/bin/ipmitool` in Linux or
   `C:\Program Files (x86)\Dell\SysMgt\bmc\ipmitool.exe` in Windows, specify its
   path here. Otherwise leave blank. Any value you provide here will be used to

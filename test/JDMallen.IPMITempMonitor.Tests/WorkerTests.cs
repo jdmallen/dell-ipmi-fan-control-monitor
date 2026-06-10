@@ -33,14 +33,14 @@ public class WorkerTests
 			IPMIUser = "test-user",
 			RegexToRetrieveTemp = @"(?<=0Eh|0Fh).+(\d{2})",
 			MaxTempInC = 50,
-			PollingIntervalInSeconds = 1
+			PollingIntervalInSeconds = 1,
 		};
 
 		_settingsOptions = Options.Create(_settings);
 
 		// Create a service scope factory
 		var services = new ServiceCollection();
-		var serviceProvider = services.BuildServiceProvider();
+		ServiceProvider serviceProvider = services.BuildServiceProvider();
 		_serviceScopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
 	}
 

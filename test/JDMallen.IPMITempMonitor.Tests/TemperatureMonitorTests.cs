@@ -14,7 +14,6 @@ public class TemperatureMonitorTests
 {
 	private readonly Mock<ILogger<TemperatureMonitor>> _loggerMock;
 	private readonly Mock<IIPMICommandExecutor> _ipmiExecutorMock;
-	private readonly Settings _settings;
 	private readonly IOptions<Settings> _settingsOptions;
 
 	public TemperatureMonitorTests()
@@ -22,7 +21,7 @@ public class TemperatureMonitorTests
 		_loggerMock = new Mock<ILogger<TemperatureMonitor>>();
 		_ipmiExecutorMock = new Mock<IIPMICommandExecutor>();
 
-		_settings = new Settings
+		var settings = new Settings
 		{
 			IPMIHost = "test-host",
 			IPMIPassword = "test-password",
@@ -31,10 +30,10 @@ public class TemperatureMonitorTests
 			RollingAverageNumberOfTemps = 3,
 			PollyRetryOnFailureCount = 2,
 			PollyInitialDelayInMillis = 10,
-			PollyDelayIncreaseFactor = 1.5
+			PollyDelayIncreaseFactor = 1.5,
 		};
 
-		_settingsOptions = Options.Create(_settings);
+		_settingsOptions = Options.Create(settings);
 	}
 
 	[Fact]
@@ -52,7 +51,10 @@ public class TemperatureMonitorTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(ipmiResponse);
 
-		var monitor = new TemperatureMonitor(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var monitor = new TemperatureMonitor(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		await monitor.CheckLatestTemperatureAsync(CancellationToken.None);
@@ -69,12 +71,15 @@ public class TemperatureMonitorTests
 		const string response2 = "Temp | 0Eh | ok | 3.1 | 40 degrees C";
 		const string response3 = "Temp | 0Eh | ok | 3.1 | 50 degrees C";
 
-		var responses = new Queue<string>(new[] { response1, response2, response3 });
+		var responses = new Queue<string>([response1, response2, response3]);
 		_ipmiExecutorMock
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-			.ReturnsAsync(() => responses.Dequeue());
+			.ReturnsAsync(responses.Dequeue);
 
-		var monitor = new TemperatureMonitor(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var monitor = new TemperatureMonitor(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		await monitor.CheckLatestTemperatureAsync(CancellationToken.None);
@@ -94,12 +99,15 @@ public class TemperatureMonitorTests
 		const string response3 = "Temp | 0Eh | ok | 3.1 | 50 degrees C";
 		const string response4 = "Temp | 0Eh | ok | 3.1 | 60 degrees C";
 
-		var responses = new Queue<string>(new[] { response1, response2, response3, response4 });
+		var responses = new Queue<string>([response1, response2, response3, response4]);
 		_ipmiExecutorMock
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-			.ReturnsAsync(() => responses.Dequeue());
+			.ReturnsAsync(responses.Dequeue);
 
-		var monitor = new TemperatureMonitor(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var monitor = new TemperatureMonitor(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act - Add 4 readings when max is 3
 		await monitor.CheckLatestTemperatureAsync(CancellationToken.None);
@@ -119,7 +127,10 @@ public class TemperatureMonitorTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(string.Empty);
 
-		var monitor = new TemperatureMonitor(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var monitor = new TemperatureMonitor(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		await monitor.CheckLatestTemperatureAsync(CancellationToken.None);
@@ -139,7 +150,10 @@ public class TemperatureMonitorTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(ipmiResponse);
 
-		var monitor = new TemperatureMonitor(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var monitor = new TemperatureMonitor(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		await monitor.CheckLatestTemperatureAsync(CancellationToken.None);
@@ -162,7 +176,10 @@ public class TemperatureMonitorTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(ipmiResponse);
 
-		var monitor = new TemperatureMonitor(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var monitor = new TemperatureMonitor(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		await monitor.CheckLatestTemperatureAsync(CancellationToken.None);
@@ -175,7 +192,10 @@ public class TemperatureMonitorTests
 	public void RollingAverageTemperature_ShouldReturn9999_WhenNoHistory()
 	{
 		// Arrange
-		var monitor = new TemperatureMonitor(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var monitor = new TemperatureMonitor(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		double average = monitor.RollingAverageTemperature;
@@ -197,7 +217,10 @@ public class TemperatureMonitorTests
 			.Setup(x => x.ExecuteCommandAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
 			.ReturnsAsync(ipmiResponse);
 
-		var monitor = new TemperatureMonitor(_loggerMock.Object, _settingsOptions, _ipmiExecutorMock.Object);
+		var monitor = new TemperatureMonitor(
+			_loggerMock.Object,
+			_settingsOptions,
+			_ipmiExecutorMock.Object);
 
 		// Act
 		await monitor.CheckLatestTemperatureAsync(CancellationToken.None);

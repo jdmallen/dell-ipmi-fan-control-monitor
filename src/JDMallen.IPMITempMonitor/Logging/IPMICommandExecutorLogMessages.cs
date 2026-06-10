@@ -33,7 +33,8 @@ internal static partial class IPMICommandExecutorLogMessages
 	[LoggerMessage(
 		EventId = 103,
 		Level = LogLevel.Error,
-		Message = "Process {Process} with args {Args} threw exception. Trying next of {Retries} attempt(s) after {Span} delay")]
+		Message
+			= "Process {Process} with args {Args} threw exception. Trying next of {Retries} attempt(s) after {Span} delay")]
 	public static partial void LogProcessError(
 		this ILogger logger,
 		Exception exception,
