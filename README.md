@@ -159,6 +159,34 @@ excluded: the process runner only knows how to locate `ipmitool` on Linux and
 Windows, so a macOS build would fail at startup. (See the Mac note in the Quick
 start above.)
 
+## Run as a Docker container
+
+The monitor talks to your iDRAC over the network (`ipmitool -I lanplus`), so it
+runs happily in a container without any host device passthrough or extra
+capabilities — it just needs network access to the iDRAC and its connection
+settings. The included `Dockerfile` builds a small image (the .NET runtime plus
+`ipmitool`) that runs as a non-root user.
+
+1. Copy the example environment file and fill in your iDRAC details:
+
+   ```bash
+   cp .env.example .env
+   # edit .env: IPMI_HOST, IPMI_USER, IPMI_PASSWORD
+   ```
+
+2. Build and start it with Compose:
+
+   ```bash
+   docker compose up -d --build
+   docker compose logs -f
+   ```
+
+`docker-compose.yml` reads the connection details from `.env` (which is
+git-ignored, so your password stays out of source control) and passes them to
+the app as `Settings__*` environment variables. Any other setting from
+`appsettings.json` can be overridden the same way — see the commented examples
+in the compose file.
+
 ## Run as Linux Systemd service
 
 These instructions assume you're using an Ubuntu/Debian-based system. Adjust as
