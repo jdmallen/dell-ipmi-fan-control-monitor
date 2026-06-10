@@ -1,0 +1,92 @@
+# Releases a new version whenever a commit lands on main (e.g. a merged PR)
+# with a <Version> in the csproj that hasn't been tagged yet:
+#   1. builds the release archives with scripts/publish.sh (default runtimes),
+#   2. tags the pushed commit with the raw semver (no 'v' prefix), and
+#   3. creates a GitHub release whose notes are that version's CHANGELOG.md
+#      section, with the archives attached.
+# (Tagging and release creation are one atomic gh call, ordered after the
+# build so a failed publish never leaves a dangling tag.)
+# If the version's tag already exists, the run is a no-op, so routine merges
+# that don't bump <Version> never re-release.
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Read version from csproj
+        id: version
+        run: |
+          version="$(grep -oP '(?<=<Version>)[^<]+' \
+            src/JDMallen.IPMITempMonitor/JDMallen.IPMITempMonitor.csproj | head -n1)"
+          if [[ -z "$version" ]]; then
+            echo "::error::No <Version> found in csproj." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+      - name: Skip if tag already exists
+        id: tag_check
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
+            echo "Tag $VERSION already exists; skipping release."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up .NET SDK
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Publish release binaries
+        if: steps.tag_check.outputs.exists == 'false'
+        run: scripts/publish.sh
+
+      - name: Extract changelog section for this version
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { in_section = 1; next }
+            in_section && (/^## \[/ || /^\[/)  { in_section = 0 }
+            in_section { print }
+          ' CHANGELOG.md > release_notes.md
+          if [[ ! -s release_notes.md ]]; then
+            echo "::error::No section for version $VERSION found in CHANGELOG.md." >&2
+            exit 1
+          fi
+          echo "--- Release notes ---"
+          cat release_notes.md
+
+      # Creating the release also creates the tag (raw semver, no 'v' prefix)
+      # on the pushed commit. Tagging happens here, after a successful build,
+      # so a failed publish never leaves a tag without a release.
+      - name: Create GitHub release and tag
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --notes-file release_notes.md \
+            dist/*.tar.gz dist/*.zip
