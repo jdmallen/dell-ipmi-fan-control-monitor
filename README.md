@@ -125,6 +125,40 @@ Here are the settings and what they do:
   attempt to execute the tool, regardless of operating system, so make sure you
   use the right slashes!
 
+## Building & publishing
+
+The application version is defined once, in the `<Version>` property of
+`src/JDMallen.IPMITempMonitor/JDMallen.IPMITempMonitor.csproj`. Bump it following
+[semantic versioning](https://semver.org/) (minor for new features, patch for
+fixes, major for breaking changes); that single value flows into the published
+binaries and the names of the release archives.
+
+To produce self-contained, single-file binaries, run the publish script:
+
+```bash
+# Publish all default runtimes (linux-x64, linux-arm64, win-x64, win-arm64)
+scripts/publish.sh
+
+# Publish a single runtime
+scripts/publish.sh linux-arm64
+
+# Override the version for a one-off build
+scripts/publish.sh -v 2.2.0 linux-x64
+
+# List all known and default runtimes
+scripts/publish.sh --help
+```
+
+Each runtime produces a raw binary in `dist/<rid>/` and a release archive at
+`dist/JDMallen.IPMITempMonitor-<version>-<rid>.{tar.gz,zip}`. The binaries are
+self-contained, so the target machine does **not** need the .NET runtime
+installed.
+
+Only Linux and Windows runtimes are supported. macOS RIDs are intentionally
+excluded: the process runner only knows how to locate `ipmitool` on Linux and
+Windows, so a macOS build would fail at startup. (See the Mac note in the Quick
+start above.)
+
 ## Run as Linux Systemd service
 
 These instructions assume you're using an Ubuntu/Debian-based system. Adjust as
