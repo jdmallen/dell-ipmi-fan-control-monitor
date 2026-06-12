@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using JDMallen.IPMITempMonitor.Hosting;
 using JDMallen.IPMITempMonitor.Logging;
+using JDMallen.Toolbox.Hosting;
 using JDMallen.IPMITempMonitor.Services;
 using Microsoft.Extensions.Options;
 

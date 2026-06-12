@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1]
+
+A maintenance release covering build, packaging, and internal hosting cleanups.
+There are **no changes to runtime behavior or user-facing configuration**.
+
+### Added
+
+- **Release checksums**: each GitHub release now ships a `SHA256SUMS.txt`
+  alongside the archives so downloads can be verified.
+- **`nuget.config`** pinning `nuget.org` as the sole package source for
+  reproducible restores.
+
+### Changed
+
+- **Re-adopted the `JDMallen.Toolbox.Hosting` package (3.0.0)** for the scoped
+  background-service hosting primitives, replacing the local copy that was
+  vendored in 2.1.0. The `ScopedBackgroundService`, `OverlapBehavior`, and their
+  source-generated log messages have been removed in favor of the package. This
+  is an internal change with no effect on configuration or runtime behavior.
+- **Refactored `scripts/publish.sh`** into a thin wrapper around a shared,
+  vendored publish engine (`scripts/publish-dotnet.sh`); its command-line
+  interface (runtimes, `-v`/`--version`, `-h`/`--help`) is unchanged.
+
 ## [2.1.0]
 
 A large internal refactor and modernization. There are **no breaking changes to
@@ -65,4 +88,5 @@ commands sent to the iDRAC are byte-for-byte identical to 2.0.0.
 - The iDRAC password is no longer exposed on the command line or in the process
   list — see the password handling note under **Changed**.
 
+[2.1.1]: https://github.com/jdmallen/dell-ipmi-fan-control-monitor/releases/tag/2.1.1
 [2.1.0]: https://github.com/jdmallen/dell-ipmi-fan-control-monitor/releases/tag/2.1.0

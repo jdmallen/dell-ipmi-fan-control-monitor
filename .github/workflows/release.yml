@@ -3,7 +3,7 @@
 #   1. builds the release archives with scripts/publish.sh (default runtimes),
 #   2. tags the pushed commit with the raw semver (no 'v' prefix), and
 #   3. creates a GitHub release whose notes are that version's CHANGELOG.md
-#      section, with the archives attached.
+#      section, with the archives and a SHA256SUMS.txt attached.
 # (Tagging and release creation are one atomic gh call, ordered after the
 # build so a failed publish never leaves a dangling tag.)
 # If the version's tag already exists, the run is a no-op, so routine merges
@@ -59,6 +59,13 @@ jobs:
         if: steps.tag_check.outputs.exists == 'false'
         run: scripts/publish.sh
 
+      - name: Generate checksums
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          cd dist
+          sha256sum *.tar.gz *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Extract changelog section for this version
         if: steps.tag_check.outputs.exists == 'false'
         env:
@@ -89,4 +96,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "$VERSION" \
             --notes-file release_notes.md \
-            dist/*.tar.gz dist/*.zip
+            dist/*.tar.gz dist/*.zip dist/SHA256SUMS.txt

@@ -8,7 +8,7 @@
             and name release archives. Bump the minor for new features, the patch for
             fixes, and the major for breaking changes (semver).
         -->
-        <Version>2.1.0</Version>
+        <Version>2.1.1</Version>
         <UserSecretsId>dotnet-R620TempMonitor-DA920151-D432-4985-B484-8CBFC5C6AD9D</UserSecretsId>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
         <LangVersion>latest</LangVersion>
@@ -30,5 +30,6 @@
         <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.2"/>
         <PackageReference Include="Polly" Version="8.6.5"/>
         <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1"/>
+        <PackageReference Include="JDMallen.Toolbox.Hosting" Version="3.0.0"/>
     </ItemGroup>
 </Project>
